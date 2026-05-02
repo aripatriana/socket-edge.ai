@@ -1,0 +1,88 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <parent>
+        <groupId>com.socket.edge</groupId>
+        <artifactId>socket-edge-ai</artifactId>
+        <version>4.0.0</version>
+        <relativePath>../pom.xml</relativePath>
+    </parent>
+
+    <artifactId>se-proto</artifactId>
+    <packaging>jar</packaging>
+    <name>SE-Proto</name>
+    <description>Shared Protobuf contracts for gRPC communication between se-core, se-ai, and se-console</description>
+
+    <dependencies>
+
+        <!-- gRPC: protobuf runtime -->
+        <dependency>
+            <groupId>io.grpc</groupId>
+            <artifactId>grpc-protobuf</artifactId>
+        </dependency>
+
+        <!-- gRPC: stub (StreamObserver, etc.) -->
+        <dependency>
+            <groupId>io.grpc</groupId>
+            <artifactId>grpc-stub</artifactId>
+        </dependency>
+
+        <!-- Protobuf Java runtime -->
+        <dependency>
+            <groupId>com.google.protobuf</groupId>
+            <artifactId>protobuf-java</artifactId>
+        </dependency>
+
+        <!-- Required for @javax.annotation.Generated on Java 9+ -->
+        <dependency>
+            <groupId>javax.annotation</groupId>
+            <artifactId>javax.annotation-api</artifactId>
+            <version>1.3.2</version>
+        </dependency>
+
+    </dependencies>
+
+    <build>
+        <extensions>
+            <!-- Detects OS/arch for protoc binary selection -->
+            <extension>
+                <groupId>kr.motd.maven</groupId>
+                <artifactId>os-maven-plugin</artifactId>
+                <version>${os.plugin.version}</version>
+            </extension>
+        </extensions>
+
+        <plugins>
+            <plugin>
+                <groupId>org.xolstice.maven.plugins</groupId>
+                <artifactId>protobuf-maven-plugin</artifactId>
+                <version>${protobuf.plugin.version}</version>
+                <configuration>
+                    <!-- protoc compiler binary -->
+                    <protocArtifact>
+                        com.google.protobuf:protoc:${protobuf.version}:exe:${os.detected.classifier}
+                    </protocArtifact>
+                    <!-- gRPC Java plugin for service stub generation -->
+                    <pluginId>grpc-java</pluginId>
+                    <pluginArtifact>
+                        io.grpc:protoc-gen-grpc-java:${grpc.version}:exe:${os.detected.classifier}
+                    </pluginArtifact>
+                </configuration>
+                <executions>
+                    <execution>
+                        <goals>
+                            <!-- Generates Java classes from .proto message definitions -->
+                            <goal>compile</goal>
+                            <!-- Generates gRPC service stubs (Stub, BlockingStub, FutureStub) -->
+                            <goal>compile-custom</goal>
+                        </goals>
+                    </execution>
+                </executions>
+            </plugin>
+        </plugins>
+    </build>
+
+</project>

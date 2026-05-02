@@ -15,15 +15,15 @@
     -->
 
     <parent>
-        <groupId>org.springframework.boot</groupId>
-        <artifactId>spring-boot-starter-parent</artifactId>
-        <version>3.4.1</version>
-        <relativePath/>
+        <groupId>com.socket.edge</groupId>
+        <artifactId>socket-edge-ai</artifactId>
+        <version>4.0.0</version>
+        <relativePath>../pom.xml</relativePath>
     </parent>
 
     <groupId>id.co.jalin</groupId>
     <artifactId>se-console</artifactId>
-    <version>2.0.0-SNAPSHOT</version>
+    <version>4.0.0</version>
     <packaging>jar</packaging>
 
     <name>SE-Console</name>
@@ -128,13 +128,24 @@
             <scope>runtime</scope>
         </dependency>
 
-        <!--
-          OSHI — cross-platform OS metrics (CPU, memory, disk, network, FD).
-        -->
+        <!-- ─── gRPC client — connects to se-core ─── -->
+
+        <!-- Shared proto contract (generated stubs + message types) -->
         <dependency>
-            <groupId>com.github.oshi</groupId>
-            <artifactId>oshi-core</artifactId>
-            <version>${oshi.version}</version>
+            <groupId>com.socket.edge</groupId>
+            <artifactId>se-proto</artifactId>
+        </dependency>
+
+        <!-- gRPC transport (shaded Netty) -->
+        <dependency>
+            <groupId>io.grpc</groupId>
+            <artifactId>grpc-netty-shaded</artifactId>
+        </dependency>
+
+        <!-- gRPC stub runtime (StreamObserver, etc.) -->
+        <dependency>
+            <groupId>io.grpc</groupId>
+            <artifactId>grpc-stub</artifactId>
         </dependency>
 
         <!--
@@ -165,7 +176,28 @@
     <build>
         <finalName>se-console-${project.version}</finalName>
 
+        <!-- Enable @...@ style resource filtering (was provided by spring-boot-starter-parent) -->
+        <resources>
+            <resource>
+                <directory>src/main/resources</directory>
+                <filtering>true</filtering>
+            </resource>
+        </resources>
+
         <plugins>
+
+            <!-- @project.version@ filtering uses @ delimiter, not ${} -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-resources-plugin</artifactId>
+                <configuration>
+                    <delimiters>
+                        <delimiter>@</delimiter>
+                    </delimiters>
+                    <useDefaultDelimiters>false</useDefaultDelimiters>
+                </configuration>
+            </plugin>
+
 
             <!--
               Spring Boot Maven Plugin — produces executable fat JAR.

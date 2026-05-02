@@ -17,7 +17,10 @@ import com.socket.edge.core.iso.Iso8583ProfileResolver;
 import com.socket.edge.core.socket.*;
 import com.socket.edge.core.transport.TransportProvider;
 import com.socket.edge.core.transport.TransportRegister;
+import com.socket.edge.grpc.GrpcServer;
 import com.socket.edge.http.NettyHttpServer;
+import com.socket.edge.http.service.AdminHttpService;
+import com.socket.edge.http.service.ReloadCfgService;
 import com.socket.edge.http.handler.*;
 import com.socket.edge.http.service.AdminHttpService;
 import com.socket.edge.http.service.CorrelationCacheService;
@@ -73,6 +76,9 @@ public class SystemBootstrap {
     private TransportRegister transportRegister;
     private CorrelationStore correlationStore;
     private NettyHttpServer httpServer;
+    private GrpcServer grpcServer;
+    private AdminHttpService adminHttpService;
+    private ReloadCfgService reloadCfgService;
     private MetadataHolder metadataHolder;
     private SEEngine seEngine;
     private AuditLogger auditLogger;
@@ -216,7 +222,10 @@ public class SystemBootstrap {
         // 16. HTTP admin server — with full HttpConfig
         handleHttpServer(channelCfgProcessor, telemetryRegistry, socketManager);
 
-        // 17. Shutdown hook — with drain timeout
+        // 17. gRPC server — metrics streaming + control via gRPC
+        handleGrpcServer();
+
+        // 18. Shutdown hook — with drain timeout
         handleLifecycle();
 
         log.info("System initialized successfully");
@@ -289,15 +298,22 @@ public class SystemBootstrap {
         clusterManager.start();
     }
 
+    private void handleGrpcServer() throws Exception {
+        int  port       = Integer.parseInt(System.getProperty("grpc.port", "9090"));
+        long intervalMs = Long.parseLong(System.getProperty("grpc.metrics.interval.ms", "2000"));
+        grpcServer = new GrpcServer(adminHttpService, reloadCfgService);
+        grpcServer.start(port, intervalMs);
+    }
+
     private void handleHttpServer(ChannelCfgProcessor channelCfgProcessor,
                                   TelemetryRegistry telemetryRegistry,
                                   SocketManager socketManager) throws Exception {
         log.info("Start HTTP server..");
 
         // Services
-        ReloadCfgService reloadCfgService = new ReloadCfgService(
+        reloadCfgService = new ReloadCfgService(
                 socketManager, metadataHolder, channelCfgProcessor);
-        AdminHttpService adminHttpService = new AdminHttpService(socketManager);
+        adminHttpService = new AdminHttpService(socketManager);
         CorrelationCacheService correlationCacheService = new CorrelationCacheService(correlationStore);
 
         // Register all handlers — flat, explicit, no constructor side-effects
@@ -361,6 +377,7 @@ public class SystemBootstrap {
             }
 
             // Phase 2: Stop components
+            safeStop("gRPC server", () -> { if (grpcServer != null) grpcServer.stop(); });
             safeStop("HTTP server", () -> { if (httpServer != null) httpServer.stop(); });
             safeStop("Camel context", () -> { if (camelContext != null) camelContext.stop(); });
             safeStop("Sockets", () -> { if (socketManager != null) socketManager.destroyAll(); });

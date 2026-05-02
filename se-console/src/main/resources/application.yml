@@ -136,6 +136,11 @@ seconsole:
     jmx-isolb-latency:         false
     jmx-isolb-correlation:     false
 
+  se-core:
+    grpc-host: localhost       # se-core gRPC host
+    grpc-port: 9090            # se-core gRPC port (must match grpc.port JVM arg in se-core)
+    reconnect-delay-ms: 5000   # delay before re-subscribing after stream error
+
   retention:
     audit-days:          365
     config-versions-days: 90

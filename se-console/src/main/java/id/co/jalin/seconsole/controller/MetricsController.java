@@ -2,6 +2,7 @@ package id.co.jalin.seconsole.controller;
 
 import id.co.jalin.seconsole.dto.response.SystemMetricsDto;
 import id.co.jalin.seconsole.service.SystemMetricsService;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -28,6 +29,11 @@ public class MetricsController {
     @GetMapping("/metrics")
     @PreAuthorize("hasAnyRole('ADMIN', 'OPERATOR', 'VIEWER')")
     public ResponseEntity<SystemMetricsDto> systemMetrics() {
-        return ResponseEntity.ok(metricsService.snapshot());
+        SystemMetricsDto dto = metricsService.snapshot();
+        if (dto == null) {
+            // se-core not yet connected — return 503 so dashboard shows "unavailable"
+            return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE).build();
+        }
+        return ResponseEntity.ok(dto);
     }
 }

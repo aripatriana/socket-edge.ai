@@ -1,0 +1,74 @@
+syntax = "proto3";
+
+package socket.edge;
+
+import "socket/edge/se_common.proto";
+import "socket/edge/se_os.proto";
+
+option java_package        = "com.socket.edge.grpc";
+option java_multiple_files = true;
+
+// ─────────────────────────────────────────────────────────────
+// CoreService — gRPC server hosted by se-core.
+//
+// Topology:
+//   se-console  → client  (subscribe metrics, send control commands)
+//   se-ai       → client  (subscribe metrics, push weight updates)
+//   se-core     → server  (single gRPC server, central hub)
+//
+// RPC types used:
+//   Unary           → request/response (control commands, static info)
+//   Server streaming → se-core pushes data to connected subscribers
+//
+// Phase 1: OS metrics + control commands
+// Phase 2: + JvmSnapshot   (se_jvm.proto)
+// Phase 3: + ChannelSnapshot, WeightUpdate, AnomalyEvent (se_channel.proto, se_ai.proto)
+// ─────────────────────────────────────────────────────────────
+
+// Wraps all periodic snapshots into a single bundle per interval.
+// Grows as new snapshot types are added in subsequent phases.
+message MetricsBundle {
+    OsSnapshot os      = 1;
+    // JvmSnapshot jvm   = 2;  (Phase 2)
+    // ChannelSnapshot channel = 3;  (Phase 3)
+    string     node_id = 10;  // se-core cluster node identifier
+}
+
+// Request to target a named channel for control operations
+message ChannelRequest {
+    string channel_name = 1;
+}
+
+service CoreService {
+
+    // ── Static info ───────────────────────────────────────────
+    // Fetch once on connect. Does not change at runtime.
+    rpc GetSystemInfo(Empty) returns (SystemInfo);
+
+
+    // ── Metrics streaming ─────────────────────────────────────
+    // se-console and se-ai subscribe here.
+    // se-core pushes a MetricsBundle at every collection interval.
+    // If se-core restarts, clients must reconnect and re-subscribe.
+    rpc SubscribeMetrics(Empty) returns (stream MetricsBundle);
+
+
+    // ── Control commands ──────────────────────────────────────
+    // Called by se-console. Same semantics as the previous HTTP Admin API.
+    // grpcurl equivalent: grpcurl -plaintext -d '{"channel_name":"bni"}' \
+    //   host:9090 socket.edge.CoreService/StartChannel
+
+    rpc StartChannel(ChannelRequest)  returns (ControlResponse);
+    rpc StopChannel(ChannelRequest)   returns (ControlResponse);
+    rpc RestartChannel(ChannelRequest) returns (ControlResponse);
+    rpc ReloadConfig(Empty)           returns (ControlResponse);
+
+
+    // ── AI feedback ───────────────────────────────────────────
+    // Called by se-ai after completing LLM analysis.
+    // Delivers weight adjustments and detected anomalies back to se-core.
+    // (message types defined in se_ai.proto — Phase 3)
+    // rpc UpdateWeight(WeightUpdate)   returns (ControlResponse);
+    // rpc ReportAnomaly(AnomalyEvent)  returns (ControlResponse);
+
+}

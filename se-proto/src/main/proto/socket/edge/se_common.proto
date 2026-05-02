@@ -1,0 +1,27 @@
+syntax = "proto3";
+
+package socket.edge;
+
+option java_package        = "com.socket.edge.grpc";
+option java_multiple_files = true;
+
+// ─────────────────────────────────────────────────────────────
+// Common types shared across all snapshot messages.
+// ─────────────────────────────────────────────────────────────
+
+// Mandatory header for every snapshot.
+// Allows consumers to correlate, deduplicate, and measure collection overhead.
+message SnapshotHeader {
+    string snapshot_id      = 1;  // ULID or UUID — unique per snapshot
+    int64  captured_at      = 2;  // epoch millis, UTC — when collection started
+    int32  capture_duration = 3;  // millis — how long assembler took
+}
+
+// Generic empty message (avoids dependency on google/protobuf/empty.proto)
+message Empty {}
+
+// Generic control response returned by all command RPCs
+message ControlResponse {
+    bool   success = 1;
+    string message = 2;
+}

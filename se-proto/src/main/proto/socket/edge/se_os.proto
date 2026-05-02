@@ -1,0 +1,157 @@
+syntax = "proto3";
+
+package socket.edge;
+
+import "socket/edge/se_common.proto";
+
+option java_package        = "com.socket.edge.grpc";
+option java_multiple_files = true;
+
+// ─────────────────────────────────────────────────────────────
+// OS & Host metrics — collected by se-core via OSHI.
+//
+// Split into two concerns:
+//   SystemInfo  — static host info, fetched once via unary RPC
+//   OsSnapshot  — dynamic metrics, streamed at regular intervals
+// ─────────────────────────────────────────────────────────────
+
+
+// ── Static host information ───────────────────────────────────
+// Fetched once via GetSystemInfo() RPC when se-console connects.
+// Does not change at runtime; no need to stream.
+
+message SystemInfo {
+    string hostname         = 1;
+    string os_name          = 2;   // e.g. "Windows 10 build 19045" / "Ubuntu 22.04 LTS"
+    string os_version       = 3;   // e.g. "10.0.19045" / "5.15.0-91-generic"
+    string architecture     = 4;   // "amd64", "arm64", etc.
+    string cpu_model        = 5;   // e.g. "13th Gen Intel Core i7-1355U"
+    int32  cpu_logical      = 6;   // logical (hyper-threaded) core count
+    int32  cpu_physical     = 7;   // physical core count
+    int64  cpu_max_freq_mhz = 8;   // rated max frequency — baseline for throttle detection
+    int64  total_memory     = 9;   // bytes
+    int64  boot_time        = 10;  // epoch millis — when OS was booted
+}
+
+
+// ── Dynamic process info (se-core process) ───────────────────
+// Represents the se-core JVM process as seen by the OS (via OSHI).
+// Low-level OS view — complements the deeper JvmSnapshot from JMX/MBean.
+
+message ProcessInfo {
+    int64  pid             = 1;
+    string process_name    = 2;   // "java"
+    string user            = 3;   // OS user running the process
+    string working_dir     = 4;
+    int64  start_time      = 5;   // epoch millis
+    int64  uptime_ms       = 6;
+    int64  rss_bytes       = 7;   // Resident Set Size — actual physical memory in use
+    int64  virtual_bytes   = 8;   // Virtual Memory Size
+    double process_cpu_pct = 9;   // CPU usage of this process only (0–100 * nCores)
+    int32  thread_count    = 10;
+    int32  open_files      = 11;
+    int64  bytes_read      = 12;  // cumulative disk bytes read by this process
+    int64  bytes_written   = 13;  // cumulative disk bytes written by this process
+}
+
+
+// ── CPU statistics ────────────────────────────────────────────
+
+message CpuStats {
+    double         system_pct       = 1;  // total system-wide CPU usage (0–100)
+    double         user_pct         = 2;  // user-space portion
+    double         sys_pct          = 3;  // kernel-space portion
+    double         idle_pct         = 4;
+    int64          current_freq_mhz = 5;  // current measured frequency
+                                          // compare with SystemInfo.cpu_max_freq_mhz
+                                          // to detect thermal throttling
+    repeated double per_core_pct    = 6;  // per-logical-core usage (0–100 each)
+                                          // useful to detect single-core bottlenecks
+}
+
+
+// ── Memory statistics ─────────────────────────────────────────
+
+message MemoryStats {
+    int64 used_bytes       = 1;
+    int64 free_bytes       = 2;
+    int64 total_bytes      = 3;
+    int64 available_bytes  = 4;  // Linux: available ≠ free (accounts for page cache)
+                                 // Windows: same as free
+    int64 swap_used_bytes  = 5;
+    int64 swap_free_bytes  = 6;
+    int64 swap_total_bytes = 7;
+}
+
+
+// ── Disk statistics (per mount / partition) ───────────────────
+
+message DiskStats {
+    string mount       = 1;   // "C:\" on Windows, "/opt" on Linux
+    string fs_type     = 2;   // "NTFS", "ext4", "xfs" — useful for support context
+    int64  used_bytes  = 3;
+    int64  free_bytes  = 4;
+    int64  total_bytes = 5;
+    double used_pct    = 6;   // 0.0–100.0
+    int64  read_bps    = 7;   // current read throughput bytes/sec
+    int64  write_bps   = 8;   // current write throughput bytes/sec
+    int64  read_iops   = 9;   // read I/O operations per sec
+    int64  write_iops  = 10;  // write I/O operations per sec
+}
+
+
+// ── Network interface statistics ──────────────────────────────
+// One entry per physical/virtual network interface.
+// Consumers may filter by is_loopback if they only want external interfaces.
+
+message NetworkInterface {
+    string          name          = 1;   // "eth0", "en0", "Ethernet"
+    string          display_name  = 2;   // full human-readable name from OSHI
+    string          mac_address   = 3;   // for interface identification
+    repeated string ip_addresses  = 4;   // may have multiple (IPv4 + IPv6)
+    int64           rx_bytes      = 5;   // cumulative received bytes
+    int64           tx_bytes      = 6;   // cumulative transmitted bytes
+    int64           rx_bps        = 7;   // current receive rate (bytes/sec)
+    int64           tx_bps        = 8;   // current transmit rate (bytes/sec)
+    int64           rx_packets    = 9;   // cumulative received packets
+    int64           tx_packets    = 10;  // cumulative transmitted packets
+    int64           rx_errors     = 11;  // receive errors (NIC or driver level)
+    int64           tx_errors     = 12;  // transmit errors
+    int32           speed_mbps    = 13;  // rated interface speed (e.g. 1000 = 1Gbps)
+    bool            is_loopback   = 14;  // true for lo / 127.x.x.x interfaces
+}
+
+
+// ── Load average ──────────────────────────────────────────────
+
+message LoadAverage {
+    double avg_1m    = 1;
+    double avg_5m    = 2;
+    double avg_15m   = 3;
+    bool   available = 4;  // true on Linux/macOS (native)
+                            // false on Windows (OSHI simulates via CPU queue length)
+}
+
+
+// ── File descriptor / handle usage ───────────────────────────
+
+message FileDescriptors {
+    int64 open_count = 1;  // currently open file handles (system-wide)
+    int64 max_count  = 2;  // system limit (ulimit -n on Linux)
+}
+
+
+// ── OsSnapshot — top-level dynamic snapshot ──────────────────
+// Streamed at regular intervals (e.g. every 1–3 seconds).
+// Wraps all dynamic OS-level metrics for the host running se-core.
+
+message OsSnapshot {
+    SnapshotHeader            header    = 1;
+    ProcessInfo               process   = 2;  // se-core OS-level process stats
+    CpuStats                  cpu       = 3;
+    MemoryStats               memory    = 4;
+    repeated DiskStats        disks     = 5;
+    repeated NetworkInterface networks  = 6;
+    LoadAverage               load_avg  = 7;
+    FileDescriptors           file_desc = 8;
+}

@@ -4,6 +4,13 @@
          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
     <modelVersion>4.0.0</modelVersion>
 
+    <parent>
+        <groupId>com.socket.edge</groupId>
+        <artifactId>socket-edge-ai</artifactId>
+        <version>4.0.0</version>
+        <relativePath>../pom.xml</relativePath>
+    </parent>
+
     <groupId>com.socket.edge</groupId>
     <artifactId>se-core</artifactId>
     <version>4.0.0</version>
@@ -188,6 +195,38 @@
             <artifactId>caffeine</artifactId>
             <version>3.1.8</version>
         </dependency>
+
+        <!-- ========================= -->
+        <!-- gRPC server               -->
+        <!-- ========================= -->
+
+        <!-- Shared proto contract -->
+        <dependency>
+            <groupId>com.socket.edge</groupId>
+            <artifactId>se-proto</artifactId>
+        </dependency>
+
+        <!-- gRPC transport — shaded Netty avoids version conflict with existing Netty -->
+        <dependency>
+            <groupId>io.grpc</groupId>
+            <artifactId>grpc-netty-shaded</artifactId>
+        </dependency>
+
+        <!-- gRPC server reflection — required for grpcurl without proto files -->
+        <dependency>
+            <groupId>io.grpc</groupId>
+            <artifactId>grpc-services</artifactId>
+        </dependency>
+
+        <!-- ========================= -->
+        <!-- OS metrics (OSHI)         -->
+        <!-- ========================= -->
+        <dependency>
+            <groupId>com.github.oshi</groupId>
+            <artifactId>oshi-core</artifactId>
+            <version>6.6.5</version>
+        </dependency>
+
     </dependencies>
 
     <build>
@@ -330,21 +369,61 @@
                 </configuration>
             </plugin>
 
-            <!-- Copy Dependencies -->
+            <!--
+              Fat JAR — bundles all runtime dependencies into a single executable JAR.
+
+              Key transformers:
+                ManifestResourceTransformer  → sets Main-Class in MANIFEST.MF
+                ServicesResourceTransformer  → merges META-INF/services/* files
+                                               REQUIRED for gRPC service discovery
+                                               (ManagedChannelProvider, ServerProvider, etc.)
+                ApacheLicenseResourceTransformer → avoids duplicate license conflicts
+
+              Signature files (.SF/.DSA/.RSA) are excluded — signed JARs break
+              when repackaged into a fat JAR.
+            -->
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
-                <artifactId>maven-dependency-plugin</artifactId>
-                <version>3.6.1</version>
+                <artifactId>maven-shade-plugin</artifactId>
+                <version>3.6.0</version>
                 <executions>
                     <execution>
-                        <id>copy-dependencies</id>
                         <phase>package</phase>
                         <goals>
-                            <goal>copy-dependencies</goal>
+                            <goal>shade</goal>
                         </goals>
                         <configuration>
-                            <outputDirectory>${project.build.directory}/lib</outputDirectory>
-                            <includeScope>runtime</includeScope>
+                            <createDependencyReducedPom>false</createDependencyReducedPom>
+                            <transformers>
+
+                                <transformer implementation="org.apache.maven.plugins.shade.resource.ManifestResourceTransformer">
+                                    <mainClass>com.socket.edge.SystemBootstrap</mainClass>
+                                </transformer>
+
+                                <!-- Merge all META-INF/services — critical for gRPC -->
+                                <transformer implementation="org.apache.maven.plugins.shade.resource.ServicesResourceTransformer"/>
+
+                                <transformer implementation="org.apache.maven.plugins.shade.resource.ApacheLicenseResourceTransformer"/>
+
+                                <transformer implementation="org.apache.maven.plugins.shade.resource.ApacheNoticeResourceTransformer">
+                                    <addHeader>false</addHeader>
+                                </transformer>
+
+                            </transformers>
+
+                            <filters>
+                                <!-- Remove JAR signatures — fat JARs cannot be signed this way -->
+                                <filter>
+                                    <artifact>*:*</artifact>
+                                    <excludes>
+                                        <exclude>META-INF/*.SF</exclude>
+                                        <exclude>META-INF/*.DSA</exclude>
+                                        <exclude>META-INF/*.RSA</exclude>
+                                        <exclude>META-INF/MANIFEST.MF</exclude>
+                                    </excludes>
+                                </filter>
+                            </filters>
+
                         </configuration>
                     </execution>
                 </executions>
