@@ -1,0 +1,11 @@
+<!--
+  pom.xml additions for Chat 3a (System Metrics).
+  Insert inside the existing <dependencies>...</dependencies> block.
+-->
+
+        <!-- OSHI — cross-platform OS/hardware probe. Foundation 3.1 spec. -->
+        <dependency>
+            <groupId>com.github.oshi</groupId>
+            <artifactId>oshi-core</artifactId>
+            <version>6.6.5</version>
+        </dependency>

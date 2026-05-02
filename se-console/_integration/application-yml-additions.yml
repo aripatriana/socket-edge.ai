@@ -1,0 +1,26 @@
+# Additions to src/main/resources/application.yml for Chat 2.
+# Merge these under the existing `seconsole:` key (or add it if missing).
+
+seconsole:
+  jwt:
+    # HS256 shared secret. MUST be at least 32 bytes (256 bits).
+    # In production, override via environment variable:
+    #   SECONSOLE_JWT_SECRET=<long-random-string>
+    # The value below is a development default only.
+    secret: ${SECONSOLE_JWT_SECRET:dev-only-secret-please-override-in-production-at-least-32-bytes}
+
+    # Access token time-to-live (ISO-8601 duration). Foundation 9.4 spec: 8 hours.
+    access-ttl: PT8H
+
+    # Refresh token TTL. Refresh endpoint is not yet implemented, but the
+    # refresh token is returned from /api/auth/login for forward-compat.
+    refresh-ttl: P7D
+
+# --- Logging hints (optional) ---------------------------------------------
+# Useful when debugging auth issues; remove or raise to INFO for prod.
+#
+# logging:
+#   level:
+#     id.co.jalin.seconsole.security: DEBUG
+#     id.co.jalin.seconsole.service.AuthService: DEBUG
+#     org.springframework.security: INFO

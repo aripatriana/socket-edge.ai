@@ -1,0 +1,157 @@
+# ============================================================================
+# SE-Console — default application configuration
+#
+# This file ships INSIDE the fat JAR and provides safe defaults.
+# Operators override settings via:
+#   1. /opt/jalin-isoloadbalancer/conf/seconsole.yml  (external, highest priority)
+#   2. Environment variables (SECONSOLE_...)
+#   3. JVM args (-Dseconsole.xxx=...)
+# ============================================================================
+
+spring:
+  application:
+    name: se-console
+
+  # --------------------------------------------------------------------------
+  # H2 embedded database — file mode, stored in the working directory during
+  # development. In production, seconsole.yml points this at
+  # /opt/jalin-isoloadbalancer/data/seconsole.mv.db
+  # --------------------------------------------------------------------------
+  datasource:
+    url: jdbc:h2:file:./data/seconsole;DB_CLOSE_DELAY=-1;NON_KEYWORDS=USER,VALUE
+    driver-class-name: org.h2.Driver
+    username: sa
+    password: ""
+    hikari:
+      pool-name: SeConsolePool
+      maximum-pool-size: 10
+      minimum-idle: 2
+      connection-timeout: 5000
+      idle-timeout: 300000
+
+  jpa:
+    hibernate:
+      # We use Flyway as source of truth for schema. Hibernate must NEVER
+      # auto-DDL — otherwise it can silently diverge from migrations.
+      ddl-auto: validate
+    properties:
+      hibernate:
+        format_sql: false
+        jdbc:
+          time_zone: UTC
+    open-in-view: false   # avoid LazyInitializationException pitfalls in controllers
+
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+    baseline-on-migrate: true
+    validate-on-migrate: true
+    repair-on-migrate: true
+
+  # Spring Boot 3.x turns off the H2 console by default. We leave it off here;
+  # operators who need DB inspection should stop the service and use H2 Shell.
+  h2:
+    console:
+      enabled: false
+
+  # Multipart upload limits — not used yet, but set conservative defaults now.
+  servlet:
+    multipart:
+      max-file-size: 2MB
+      max-request-size: 4MB
+
+# ============================================================================
+# Embedded Tomcat — bind LOOPBACK only. Foundation Guide D4.
+# Access from operator workstations goes through SSH tunnel.
+# ============================================================================
+server:
+  address: 127.0.0.1
+  port: 8080
+  compression:
+    enabled: true
+    mime-types: text/html,text/css,application/json,application/javascript
+    min-response-size: 1024
+  error:
+    include-message: always
+    include-binding-errors: always
+
+# ============================================================================
+# Actuator — expose only the endpoints we actually use. Everything else off.
+# ============================================================================
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+      base-path: /actuator
+  endpoint:
+    health:
+      show-details: when-authorized
+      probes:
+        enabled: true
+  info:
+    env:
+      enabled: true
+
+info:
+  app:
+    name: ${spring.application.name}
+    version: @project.version@
+    description: Socket Edge Console for Jalin ISO Load Balancer
+
+# ============================================================================
+# SE-Console specific settings — parsed into ConsoleProperties later.
+# These defaults assume local development. Production values live in
+# /opt/jalin-isoloadbalancer/conf/seconsole.yml
+# ============================================================================
+seconsole:
+  isolb:
+    # Directory layout of the engine installation we manage.
+    install-dir:   /opt/jalin-isoloadbalancer
+    bin-dir:       ${seconsole.isolb.install-dir}/bin
+    conf-dir:      ${seconsole.isolb.install-dir}/conf
+    data-dir:      ${seconsole.isolb.install-dir}/data
+    log-dir:       ${seconsole.isolb.install-dir}/log
+
+  jmx:
+    # Engine's JMX connection. Keep localhost-only.
+    service-url:   service:jmx:rmi:///jndi/rmi://127.0.0.1:9010/jmxrmi
+    username:      ""
+    password:      ""
+    connect-timeout-ms: 5000
+
+  security:
+    jwt:
+      # 32+ byte base64 secret. THIS DEFAULT IS FOR DEV ONLY.
+      # Production must override via seconsole.yml or SECONSOLE_SECURITY_JWT_SECRET.
+      secret: "ZGV2LW9ubHktc2VjcmV0LXJlcGxhY2UtaW4tcHJvZHVjdGlvbi1wbGVhc2U="
+      issuer: se-console
+      access-token-ttl: PT2H         # 2 hours
+      refresh-token-ttl: P7D         # 7 days
+
+  features:
+    # Feature flags for MBeans we have not yet confirmed with the engine team.
+    # See jalin-console-gap-analysis.docx — flip these to true as metrics land.
+    jmx-isolb-tps:             false
+    jmx-isolb-latency:         false
+    jmx-isolb-correlation:     false
+
+  retention:
+    audit-days:          365
+    config-versions-days: 90
+    expired-session-grace-days: 7
+  jwt:
+    secret: ${SECONSOLE_JWT_SECRET:dev-only-secret-please-override-in-production-at-least-32-bytes}
+    access-ttl: PT8H
+    refresh-ttl: P7D
+# ============================================================================
+# Logging — Logback config is in src/main/resources/logback-spring.xml,
+# this block just sets levels.
+# ============================================================================
+logging:
+  level:
+    root:                          INFO
+    id.co.jalin.seconsole:         INFO
+    org.springframework.security:  INFO
+    org.hibernate.SQL:             WARN
+    org.flywaydb:                  INFO

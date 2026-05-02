@@ -1,0 +1,60 @@
+# SE-Console — editor config
+# https://editorconfig.org/
+#
+# IDEs that respect this file:
+#   IntelliJ / WebStorm / Rider, VSCode (with plugin), Eclipse, Vim/Neovim, etc.
+
+root = true
+
+[*]
+charset = utf-8
+end_of_line = lf
+insert_final_newline = true
+trim_trailing_whitespace = true
+
+# Java — 4-space indent is community standard, matches Spring code style
+[*.java]
+indent_style = space
+indent_size = 4
+max_line_length = 120
+
+# TypeScript / JavaScript / JSX / TSX — 2-space (Prettier default)
+[*.{ts,tsx,js,jsx,mjs,cjs}]
+indent_style = space
+indent_size = 2
+max_line_length = 100
+
+# YAML is 2-space by spec
+[*.{yml,yaml}]
+indent_style = space
+indent_size = 2
+
+# JSON — 2-space
+[*.json]
+indent_style = space
+indent_size = 2
+
+# XML / HTML — 4-space, matches Maven and existing mockup files
+[*.{xml,html}]
+indent_style = space
+indent_size = 4
+
+# Markdown — preserve trailing whitespace (line breaks)
+[*.md]
+trim_trailing_whitespace = false
+indent_style = space
+indent_size = 2
+
+# Makefiles require tabs
+[Makefile]
+indent_style = tab
+
+# Shell scripts
+[*.sh]
+indent_style = space
+indent_size = 2
+end_of_line = lf
+
+# Windows batch files always use CRLF
+[*.{bat,cmd}]
+end_of_line = crlf

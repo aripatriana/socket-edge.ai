@@ -1,0 +1,21 @@
+/*
+  ===========================================================================
+  MINIMAL addition to src/main/webapp-ui/src/index.css
+
+  Keep all the existing @layer base content from Chat 1 as-is. Add only
+  this keyframe at the END of the file (after @tailwind utilities).
+
+  The rest of Chat 3a components use Tailwind utility classes against your
+  existing shadcn tokens (bg-card, text-foreground, border-border, etc.) —
+  no new CSS variables needed.
+  ===========================================================================
+*/
+
+@keyframes pulse-dot {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.3; }
+}
+
+.pulse-dot {
+  animation: pulse-dot 2s infinite;
+}

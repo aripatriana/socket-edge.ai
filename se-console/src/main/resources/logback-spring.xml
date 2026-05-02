@@ -1,0 +1,61 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  SE-Console — Logback configuration.
+
+  Dev:  console only.
+  Prod: console + rolling file under ${seconsole.log-dir:-./logs}/seconsole.log
+        with 14 days retention, max 100 MB per file.
+
+  Activate the "prod" profile with  -Dspring.profiles.active=prod
+  (or via SPRING_PROFILES_ACTIVE env var, or in seconsole.yml).
+-->
+<configuration scan="true" scanPeriod="60 seconds">
+
+    <!-- Let Spring Boot expose its default conversion rules -->
+    <include resource="org/springframework/boot/logging/logback/defaults.xml"/>
+
+    <!-- Allow log dir override via property, default to ./logs -->
+    <springProperty scope="context" name="LOG_DIR"
+                    source="seconsole.log-dir" defaultValue="./logs"/>
+
+    <!-- ======================================================
+         Console appender — human-friendly, used in all profiles.
+         ====================================================== -->
+    <appender name="CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
+        <encoder>
+            <pattern>%d{yyyy-MM-dd HH:mm:ss.SSS} %highlight(%-5level) [%thread] %cyan(%logger{36}) - %msg%n</pattern>
+        </encoder>
+    </appender>
+
+    <!-- ======================================================
+         Rolling file appender — prod only.
+         Time-based rollover with size cap per file.
+         ====================================================== -->
+    <springProfile name="prod">
+        <appender name="FILE" class="ch.qos.logback.core.rolling.RollingFileAppender">
+            <file>${LOG_DIR}/seconsole.log</file>
+            <encoder>
+                <pattern>%d{yyyy-MM-dd HH:mm:ss.SSS} %-5level [%thread] %logger{36} - %msg%n</pattern>
+            </encoder>
+            <rollingPolicy class="ch.qos.logback.core.rolling.SizeAndTimeBasedRollingPolicy">
+                <fileNamePattern>${LOG_DIR}/seconsole.%d{yyyy-MM-dd}.%i.log.gz</fileNamePattern>
+                <maxFileSize>100MB</maxFileSize>
+                <maxHistory>14</maxHistory>
+                <totalSizeCap>2GB</totalSizeCap>
+            </rollingPolicy>
+        </appender>
+
+        <root level="INFO">
+            <appender-ref ref="CONSOLE"/>
+            <appender-ref ref="FILE"/>
+        </root>
+    </springProfile>
+
+    <!-- Default profile (dev/test) — console only -->
+    <springProfile name="!prod">
+        <root level="INFO">
+            <appender-ref ref="CONSOLE"/>
+        </root>
+    </springProfile>
+
+</configuration>

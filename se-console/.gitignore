@@ -1,0 +1,70 @@
+# ---------------------------------------------------------------------------
+# SE-Console — .gitignore
+# ---------------------------------------------------------------------------
+
+# Maven
+target/
+*.jar
+*.war
+*.nar
+*.ear
+*.zip
+*.tar.gz
+*.rar
+dependency-reduced-pom.xml
+pom.xml.tag
+pom.xml.releaseBackup
+pom.xml.versionsBackup
+pom.xml.next
+buildNumber.properties
+release.properties
+.mvn/timing.properties
+.mvn/wrapper/maven-wrapper.jar
+
+# Node / Vite
+node_modules/
+dist/
+dist-ssr/
+*.local
+.vite/
+.eslintcache
+
+# H2 embedded database (runtime output, not source)
+*.mv.db
+*.trace.db
+data/
+logs/
+
+# OS junk
+.DS_Store
+Thumbs.db
+*.swp
+*~
+
+# IDE
+.idea/
+*.iml
+*.ipr
+*.iws
+.vscode/
+!.vscode/settings.json.example
+.project
+.classpath
+.settings/
+.factorypath
+.apt_generated/
+.apt_generated_tests/
+bin/!/deployment/bin/
+nbproject/private/
+nb-configuration.xml
+
+# Logs / diagnostics
+*.log
+hs_err_pid*.log
+replay_pid*.log
+
+# Env files (never commit secrets)
+.env
+.env.local
+.env.*.local
+seconsole.yml.local

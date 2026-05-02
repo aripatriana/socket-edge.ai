@@ -1,0 +1,277 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+
+    <modelVersion>4.0.0</modelVersion>
+
+    <!--
+      SE-Console (Socket Edge Console)
+      Web-based Operations Console for Jalin ISO Load Balancer
+
+      Target  : fat JAR 30-35 MB
+      Stack   : Spring Boot 3.4.x + Java 21 + React 18 + Vite + H2
+      Package : id.co.jalin.seconsole.*
+    -->
+
+    <parent>
+        <groupId>org.springframework.boot</groupId>
+        <artifactId>spring-boot-starter-parent</artifactId>
+        <version>3.4.1</version>
+        <relativePath/>
+    </parent>
+
+    <groupId>id.co.jalin</groupId>
+    <artifactId>se-console</artifactId>
+    <version>2.0.0-SNAPSHOT</version>
+    <packaging>jar</packaging>
+
+    <name>SE-Console</name>
+    <description>Socket Edge Console — Operations Console for Jalin ISO Load Balancer</description>
+
+    <properties>
+        <!-- Toolchain -->
+        <java.version>21</java.version>
+        <maven.compiler.source>21</maven.compiler.source>
+        <maven.compiler.target>21</maven.compiler.target>
+        <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+
+        <!-- Third-party library versions (pinned, not inherited from parent) -->
+        <jjwt.version>0.12.6</jjwt.version>
+        <oshi.version>6.6.5</oshi.version>
+        <typesafe.config.version>1.4.3</typesafe.config.version>
+
+        <!-- Frontend build -->
+        <frontend-maven-plugin.version>1.15.1</frontend-maven-plugin.version>
+        <node.version>v20.18.1</node.version>
+        <npm.version>10.8.2</npm.version>
+        <webapp.ui.dir>${project.basedir}/src/main/webapp-ui</webapp.ui.dir>
+
+        <!-- Hard ceiling on fat JAR size (MB). Build fails if exceeded. -->
+        <jar.max-size-mb>40</jar.max-size-mb>
+    </properties>
+
+    <dependencies>
+
+        <!--
+          Spring Boot starters — DISCIPLINED LIST (6 only).
+          Adding a new starter requires justification in the PR description.
+        -->
+
+        <!-- Web: REST + MVC + embedded Tomcat -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-web</artifactId>
+        </dependency>
+
+        <!-- Security: authentication, authorization, BCrypt -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-security</artifactId>
+        </dependency>
+
+        <!-- Data JPA: Hibernate + HikariCP -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-data-jpa</artifactId>
+        </dependency>
+
+        <!-- Validation: Jakarta Bean Validation via Hibernate Validator -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-validation</artifactId>
+        </dependency>
+
+        <!-- WebSocket: for live metrics push -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-websocket</artifactId>
+        </dependency>
+
+        <!-- Actuator: /actuator/health, /actuator/info -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-actuator</artifactId>
+        </dependency>
+
+        <!--
+          Database: H2 embedded + Flyway migration
+        -->
+        <dependency>
+            <groupId>com.h2database</groupId>
+            <artifactId>h2</artifactId>
+            <scope>runtime</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.flywaydb</groupId>
+            <artifactId>flyway-core</artifactId>
+        </dependency>
+
+        <!--
+          JWT (jjwt 0.12.x — split into api/impl/jackson)
+        -->
+        <dependency>
+            <groupId>io.jsonwebtoken</groupId>
+            <artifactId>jjwt-api</artifactId>
+            <version>${jjwt.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>io.jsonwebtoken</groupId>
+            <artifactId>jjwt-impl</artifactId>
+            <version>${jjwt.version}</version>
+            <scope>runtime</scope>
+        </dependency>
+        <dependency>
+            <groupId>io.jsonwebtoken</groupId>
+            <artifactId>jjwt-jackson</artifactId>
+            <version>${jjwt.version}</version>
+            <scope>runtime</scope>
+        </dependency>
+
+        <!--
+          OSHI — cross-platform OS metrics (CPU, memory, disk, network, FD).
+        -->
+        <dependency>
+            <groupId>com.github.oshi</groupId>
+            <artifactId>oshi-core</artifactId>
+            <version>${oshi.version}</version>
+        </dependency>
+
+        <!--
+          Typesafe Config — HOCON parser for channel.conf validation.
+        -->
+        <dependency>
+            <groupId>com.typesafe</groupId>
+            <artifactId>config</artifactId>
+            <version>${typesafe.config.version}</version>
+        </dependency>
+
+        <!--
+          Test scope
+        -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-test</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.security</groupId>
+            <artifactId>spring-security-test</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+    </dependencies>
+
+    <build>
+        <finalName>se-console-${project.version}</finalName>
+
+        <plugins>
+
+            <!--
+              Spring Boot Maven Plugin — produces executable fat JAR.
+            -->
+            <plugin>
+                <groupId>org.springframework.boot</groupId>
+                <artifactId>spring-boot-maven-plugin</artifactId>
+                <configuration>
+                    <mainClass>id.co.jalin.seconsole.SeConsoleApplication</mainClass>
+                    <executable>true</executable>
+                </configuration>
+            </plugin>
+
+            <!--
+              Frontend build (Vite via npm).
+
+              Phases:
+                generate-resources : install Node/npm locally, then `npm install`
+                process-resources  : `npm run build`  -> webapp-ui/dist/
+              Vite is configured (vite.config.ts) to emit directly into
+              target/classes/static/, so files end up inside the fat JAR.
+            -->
+            <plugin>
+                <groupId>com.github.eirslett</groupId>
+                <artifactId>frontend-maven-plugin</artifactId>
+                <version>${frontend-maven-plugin.version}</version>
+                <configuration>
+                    <workingDirectory>${webapp.ui.dir}</workingDirectory>
+                    <installDirectory>${project.build.directory}/frontend</installDirectory>
+                </configuration>
+                <executions>
+                    <execution>
+                        <id>install-node-and-npm</id>
+                        <goals>
+                            <goal>install-node-and-npm</goal>
+                        </goals>
+                        <phase>generate-resources</phase>
+                        <configuration>
+                            <nodeVersion>${node.version}</nodeVersion>
+                            <npmVersion>${npm.version}</npmVersion>
+                        </configuration>
+                    </execution>
+                    <execution>
+                        <id>npm-install</id>
+                        <goals>
+                            <goal>npm</goal>
+                        </goals>
+                        <phase>generate-resources</phase>
+                        <configuration>
+                            <arguments>install --no-audit --no-fund</arguments>
+                        </configuration>
+                    </execution>
+                    <execution>
+                        <id>npm-run-build</id>
+                        <goals>
+                            <goal>npm</goal>
+                        </goals>
+                        <phase>process-resources</phase>
+                        <configuration>
+                            <arguments>run build</arguments>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+
+            <!--
+              Build gate: fail the build if the final JAR exceeds the size budget.
+              Uses a tiny Groovy snippet so it is OS-portable (no bash on Windows).
+            -->
+            <plugin>
+                <groupId>org.codehaus.gmavenplus</groupId>
+                <artifactId>gmavenplus-plugin</artifactId>
+                <version>3.0.2</version>
+                <executions>
+                    <execution>
+                        <id>check-jar-size</id>
+                        <phase>verify</phase>
+                        <goals>
+                            <goal>execute</goal>
+                        </goals>
+                        <configuration>
+                            <scripts>
+                                <script><![CDATA[
+                                    def jar = new File(project.build.directory,
+                                                       project.build.finalName + '.jar')
+                                    if (!jar.exists()) {
+                                        log.info "[size-check] No JAR produced (skip)."
+                                        return
+                                    }
+                                    def sizeBytes = jar.length()
+                                    def sizeMb    = (sizeBytes / 1024 / 1024).longValue()
+                                    def maxMb     = project.properties['jar.max-size-mb'] as long
+                                    log.info "[size-check] Fat JAR: ${sizeMb} MB  (ceiling: ${maxMb} MB)"
+                                    if (sizeMb > maxMb) {
+                                        throw new RuntimeException(
+                                            "Fat JAR is ${sizeMb} MB - exceeds budget of ${maxMb} MB. " +
+                                            "Review newly-added dependencies.")
+                                    }
+                                ]]></script>
+                            </scripts>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+
+        </plugins>
+    </build>
+
+</project>
