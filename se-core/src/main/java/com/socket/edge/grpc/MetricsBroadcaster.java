@@ -1,5 +1,6 @@
 package com.socket.edge.grpc;
 
+import com.socket.edge.grpc.jvm.JvmMetricsCollector;
 import com.socket.edge.grpc.os.OsMetricsCollector;
 import io.grpc.stub.StreamObserver;
 import org.slf4j.Logger;
@@ -22,7 +23,8 @@ public class MetricsBroadcaster {
 
     private static final Logger log = LoggerFactory.getLogger(MetricsBroadcaster.class);
 
-    private final OsMetricsCollector              collector;
+    private final OsMetricsCollector              osCollector;
+    private final JvmMetricsCollector             jvmCollector;
     private final long                            intervalMs;
     private final String                          nodeId;
     private final CopyOnWriteArrayList<StreamObserver<MetricsBundle>> subscribers
@@ -30,10 +32,12 @@ public class MetricsBroadcaster {
     private final AtomicLong                      frameSeq = new AtomicLong(0);
     private       ScheduledExecutorService        scheduler;
 
-    public MetricsBroadcaster(OsMetricsCollector collector, long intervalMs, String nodeId) {
-        this.collector  = collector;
-        this.intervalMs = intervalMs;
-        this.nodeId     = nodeId;
+    public MetricsBroadcaster(OsMetricsCollector osCollector, JvmMetricsCollector jvmCollector,
+                               long intervalMs, String nodeId) {
+        this.osCollector  = osCollector;
+        this.jvmCollector = jvmCollector;
+        this.intervalMs   = intervalMs;
+        this.nodeId       = nodeId;
     }
 
     public void start() {
@@ -82,10 +86,12 @@ public class MetricsBroadcaster {
 
         try {
             String snapshotId = String.format("%016X", frameSeq.incrementAndGet());
-            OsSnapshot os = collector.collect(snapshotId);
+            OsSnapshot  os  = osCollector.collect(snapshotId);
+            JvmSnapshot jvm = jvmCollector.collect(snapshotId);
 
             MetricsBundle bundle = MetricsBundle.newBuilder()
                     .setOs(os)
+                    .setJvm(jvm)
                     .setNodeId(nodeId)
                     .build();
 

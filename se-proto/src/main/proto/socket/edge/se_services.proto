@@ -4,6 +4,7 @@ package socket.edge;
 
 import "socket/edge/se_common.proto";
 import "socket/edge/se_os.proto";
+import "socket/edge/se_jvm.proto";
 
 option java_package        = "com.socket.edge.grpc";
 option java_multiple_files = true;
@@ -28,10 +29,10 @@ option java_multiple_files = true;
 // Wraps all periodic snapshots into a single bundle per interval.
 // Grows as new snapshot types are added in subsequent phases.
 message MetricsBundle {
-    OsSnapshot os      = 1;
-    // JvmSnapshot jvm   = 2;  (Phase 2)
+    OsSnapshot  os      = 1;
+    JvmSnapshot jvm     = 2;
     // ChannelSnapshot channel = 3;  (Phase 3)
-    string     node_id = 10;  // se-core cluster node identifier
+    string      node_id = 10;  // se-core cluster node identifier
 }
 
 // Request to target a named channel for control operations

@@ -1,0 +1,163 @@
+syntax = "proto3";
+
+package socket.edge;
+
+import "socket/edge/se_common.proto";
+
+option java_package        = "com.socket.edge.grpc";
+option java_multiple_files = true;
+
+// ─────────────────────────────────────────────────────────────
+// JVM metrics — collected by se-core via JMX / MBean API.
+//
+// Complements OsSnapshot (OS-level view via OSHI) with a deeper
+// JVM-internal view: heap pools, GC collectors, class loading,
+// and NIO buffer usage.
+//
+// Streamed as part of MetricsBundle at every collection interval.
+// ─────────────────────────────────────────────────────────────
+
+
+// ── GC implementation type ────────────────────────────────────
+// Resolved once by the collector from GarbageCollectorMXBean names.
+// Applies to all collectors in the snapshot — one GC impl per JVM.
+
+enum GcImplementation {
+    GC_IMPL_UNSPECIFIED = 0;
+    GC_IMPL_G1GC        = 1;  // Java 9+ default; collectors: Young, Concurrent, Old
+    GC_IMPL_ZGC         = 2;  // includes Generational ZGC (Java 21+)
+    GC_IMPL_SHENANDOAH  = 3;  // OpenJDK / Azul builds
+    GC_IMPL_PARALLEL    = 4;  // PS Scavenge + PS MarkSweep
+    GC_IMPL_SERIAL      = 5;  // Copy + MarkSweepCompact
+    GC_IMPL_OTHER       = 6;
+}
+
+
+// ── Memory pool type ──────────────────────────────────────────
+
+enum MemoryPoolType {
+    MEMORY_POOL_TYPE_UNSPECIFIED = 0;
+    MEMORY_POOL_TYPE_HEAP        = 1;
+    MEMORY_POOL_TYPE_NON_HEAP    = 2;
+}
+
+
+// ── JVM process identity ──────────────────────────────────────
+// Static-ish fields (java_version, vm_name, vm_vendor) are stable
+// across snapshots but included here for consumer convenience.
+
+message JvmProcessInfo {
+    int64  pid          = 1;
+    int64  start_time   = 2;  // epoch millis
+    int64  uptime_ms    = 3;
+    string java_version = 4;  // e.g. "21.0.10+7-LTS"
+    string vm_name      = 5;  // e.g. "OpenJDK 64-Bit Server VM"
+    string vm_vendor    = 6;  // e.g. "Azul Systems, Inc."
+}
+
+
+// ── Memory area (heap / non-heap) ─────────────────────────────
+// Top-level JVM memory area as reported by MemoryMXBean.
+// max_bytes = -1 when the JVM does not impose an upper bound (non-heap).
+
+message JvmMemoryArea {
+    int64 init_bytes      = 1;
+    int64 used_bytes      = 2;
+    int64 committed_bytes = 3;
+    int64 max_bytes       = 4;  // -1 if unlimited
+}
+
+
+// ── Memory pool (per-region) ──────────────────────────────────
+// One entry per MemoryPoolMXBean.
+//
+// G1GC note: Eden/Survivor used_bytes may exceed committed_bytes.
+// G1 tracks "used" across all region types globally; per-pool
+// committed reflects only the most-recently-resized portion.
+// Consumers should use JvmMemoryArea.heap for accurate totals.
+//
+// max_bytes = -1 for dynamically-sized pools (G1 Eden, Survivor)
+// and unbounded non-heap pools (Metaspace).
+
+message JvmMemoryPool {
+    string         name            = 1;
+    MemoryPoolType pool_type       = 2;
+    int64          used_bytes      = 3;
+    int64          committed_bytes = 4;
+    int64          max_bytes       = 5;  // -1 if dynamic or unlimited
+}
+
+
+// ── GC collector stats ────────────────────────────────────────
+// One entry per GarbageCollectorMXBean.
+// collection_count and collection_time_ms are cumulative since JVM start.
+// Consumers compute per-interval deltas to derive throughput / overhead.
+//
+// is_concurrent semantics:
+//   false → stop-the-world (STW): collection_time_ms = true pause time
+//   true  → concurrent with app threads: collection_time_ms ≈ 0 or irrelevant
+//
+// Consumers MUST filter is_concurrent = false when computing GC overhead %.
+
+message JvmGcCollector {
+    string name               = 1;  // raw name from GarbageCollectorMXBean
+    bool   is_concurrent      = 2;  // false = STW; true = runs alongside app
+    int64  collection_count   = 3;  // cumulative
+    int64  collection_time_ms = 4;  // cumulative; for STW = total pause time
+}
+
+
+// ── Thread statistics ─────────────────────────────────────────
+
+message JvmThreadStats {
+    int32 current       = 1;  // live threads at snapshot time
+    int32 daemon        = 2;
+    int32 peak          = 3;  // peak since JVM start or last reset
+    int32 total_started = 4;  // cumulative total ever started
+    int32 deadlocked    = 5;  // 0 = healthy; >0 = critical
+
+    // State breakdown — values sum to current
+    int32 runnable      = 6;
+    int32 blocked       = 7;
+    int32 waiting       = 8;
+    int32 timed_waiting = 9;
+}
+
+
+// ── Class loading stats ───────────────────────────────────────
+
+message JvmClassStats {
+    int32 loaded       = 1;  // currently loaded classes
+    int32 total_loaded = 2;  // cumulative since JVM start
+    int32 unloaded     = 3;  // cumulative unloaded since JVM start
+}
+
+
+// ── NIO buffer pool ───────────────────────────────────────────
+// One entry per BufferPoolMXBean ("direct", "mapped").
+// Monotonically growing direct buffer count is an off-heap leak indicator.
+
+message JvmBufferPool {
+    string name                 = 1;  // "direct" | "mapped"
+    int32  count                = 2;
+    int64  used_bytes           = 3;
+    int64  total_capacity_bytes = 4;
+}
+
+
+// ── JvmSnapshot — top-level dynamic snapshot ─────────────────
+// Streamed at regular intervals as part of MetricsBundle.
+// Mirrors OsSnapshot structure: SnapshotHeader + typed sub-messages.
+
+message JvmSnapshot {
+    SnapshotHeader          header   = 1;
+    JvmProcessInfo          process  = 2;
+    GcImplementation        gc_impl  = 3;  // resolved once, applies to all gc entries
+    JvmMemoryArea           heap     = 4;
+    JvmMemoryArea           non_heap = 5;
+    repeated JvmMemoryPool  pools    = 6;
+    repeated JvmGcCollector gc       = 7;
+    JvmThreadStats          threads  = 8;
+    JvmClassStats           classes  = 9;
+    repeated JvmBufferPool  buffers  = 10;
+}

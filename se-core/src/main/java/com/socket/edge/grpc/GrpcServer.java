@@ -1,5 +1,6 @@
 package com.socket.edge.grpc;
 
+import com.socket.edge.grpc.jvm.JvmMetricsCollector;
 import com.socket.edge.grpc.os.OsMetricsCollector;
 import com.socket.edge.grpc.os.SystemInfoCollector;
 import com.socket.edge.http.service.AdminHttpService;
@@ -49,14 +50,15 @@ public class GrpcServer {
         SystemInfoCollector infoCollector = new SystemInfoCollector(oshi);
         SystemInfo systemInfo = infoCollector.collect();
 
-        // Dynamic OS metrics collector (stateful — single instance)
-        OsMetricsCollector osCollector = new OsMetricsCollector(oshi);
+        // Dynamic metric collectors (stateful — single instance each)
+        OsMetricsCollector  osCollector  = new OsMetricsCollector(oshi);
+        JvmMetricsCollector jvmCollector = new JvmMetricsCollector();
 
         // Node ID from system property or fallback to hostname
         String nodeId = System.getProperty("node.id", systemInfo.getHostname());
 
         // Broadcaster — schedules collection and fans out to all subscribers
-        broadcaster = new MetricsBroadcaster(osCollector, intervalMs, nodeId);
+        broadcaster = new MetricsBroadcaster(osCollector, jvmCollector, intervalMs, nodeId);
         broadcaster.start();
 
         // gRPC service implementation
