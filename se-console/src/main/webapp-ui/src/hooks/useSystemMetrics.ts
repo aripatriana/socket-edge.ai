@@ -8,7 +8,7 @@ import type { SystemMetrics } from '../api/metrics.types';
 export function useSystemMetrics() {
   return useQuery<SystemMetrics>({
     queryKey: ['system-metrics'],
-    queryFn: () => metricsApi.system(),
+    queryFn: () => metricsApi.latest(),
     refetchInterval: 2_000,
     refetchIntervalInBackground: false,
   });

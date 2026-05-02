@@ -100,4 +100,12 @@ public class User {
     public void setStatus(UserStatus status) { this.status = status; }
     public void setRole(Role role) { this.role = role; }
     public void setCreatedBy(Long createdBy) { this.createdBy = createdBy; }
+
+    /**
+     * Admin-driven reset of the failed-login counter. Normal auth flow
+     * uses {@link #recordSuccessfulLogin} for this as a side-effect of a
+     * real login; the admin Users page needs to zero it independently
+     * when forcing a password reset on a soft-locked account.
+     */
+    public void setFailedLoginCount(int v) { this.failedLoginCount = v; }
 }

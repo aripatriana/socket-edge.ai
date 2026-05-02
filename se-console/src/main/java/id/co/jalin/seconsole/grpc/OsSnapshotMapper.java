@@ -1,38 +1,53 @@
 package id.co.jalin.seconsole.grpc;
 
 import com.socket.edge.grpc.*;
+import id.co.jalin.seconsole.dto.response.NetworkMetricsDto;
+import id.co.jalin.seconsole.dto.response.NetworkMetricsDto.*;
 import id.co.jalin.seconsole.dto.response.SystemMetricsDto;
 import id.co.jalin.seconsole.dto.response.SystemMetricsDto.*;
 import org.springframework.stereotype.Component;
 
 import java.time.Instant;
+import java.util.Collections;
 import java.util.List;
 
 /**
- * Maps se-core gRPC types (OsSnapshot + SystemInfo) to the existing SystemMetricsDto
- * used by MetricsController and the React dashboard.
+ * Maps se-core gRPC types (OsSnapshot + SystemInfo) to SystemMetricsDto and
+ * NetworkMetricsDto used by the console's monitoring controllers.
  *
- * Keeps MetricsController and all frontend contracts unchanged.
+ * Fields not available via gRPC stream:
+ *  - MemoryMetrics.cachedBytes / buffersBytes → null  (Linux /proc/meminfo, not in stream)
+ *  - NetworkInterfaceInfo.mtu / inDrops / outDrops → 0  (not in proto)
+ *  - TcpStateCounts, TcpQualityCounters, listeningPorts → empty  (not in stream)
  */
 @Component
 public class OsSnapshotMapper {
 
-    /**
-     * Maps a MetricsBundle + cached SystemInfo to SystemMetricsDto.
-     *
-     * @param bundle     latest MetricsBundle from se-core (contains OsSnapshot)
-     * @param systemInfo static system info fetched once from se-core
-     */
+    // ── System metrics ────────────────────────────────────────────────────────
+
     public SystemMetricsDto toDto(MetricsBundle bundle, SystemInfo systemInfo) {
         OsSnapshot os = bundle.getOs();
-
         return new SystemMetricsDto(
                 Instant.ofEpochMilli(os.getHeader().getCapturedAt()),
                 mapCpu(os, systemInfo),
                 mapMemory(os),
                 mapDisks(os),
                 mapFileDescriptors(os),
-                mapHostInfo(os, systemInfo)
+                mapHostInfo(os, systemInfo),
+                mapProcess(os.getProcess())
+        );
+    }
+
+    // ── Network metrics ───────────────────────────────────────────────────────
+
+    public NetworkMetricsDto toNetworkDto(MetricsBundle bundle) {
+        OsSnapshot os = bundle.getOs();
+        return new NetworkMetricsDto(
+                Instant.ofEpochMilli(os.getHeader().getCapturedAt()),
+                mapInterfaces(os.getNetworksList()),
+                emptyTcpStates(),
+                emptyTcpQuality(),
+                Collections.emptyList()
         );
     }
 
@@ -42,18 +57,17 @@ public class OsSnapshotMapper {
         CpuStats cpu   = os.getCpu();
         LoadAverage la = os.getLoadAvg();
 
-        // Proto avg_1m → getAvg1M (protobuf capitalizes letter after digit)
-        Double l1  = la.getAvailable() && la.getAvg1M()  >= 0 ? la.getAvg1M()  : null;
-        Double l5  = la.getAvailable() && la.getAvg5M()  >= 0 ? la.getAvg5M()  : null;
-        Double l15 = la.getAvailable() && la.getAvg15M() >= 0 ? la.getAvg15M() : null;
+        Double l1  = la.getAvailable() && la.getAvg1M()  >= 0 ? (double) la.getAvg1M()  : null;
+        Double l5  = la.getAvailable() && la.getAvg5M()  >= 0 ? (double) la.getAvg5M()  : null;
+        Double l15 = la.getAvailable() && la.getAvg15M() >= 0 ? (double) la.getAvg15M() : null;
 
         return new CpuMetrics(
                 nullIfZero(os.getProcess().getProcessCpuPct()),
                 nullIfZero(cpu.getSystemPct()),
                 l1, l5, l15,
-                si != null ? si.getCpuLogical()   : 0,
-                si != null ? si.getCpuPhysical()  : 0,
-                si != null ? si.getCpuModel()     : "unknown"
+                si != null ? si.getCpuLogical()  : 0,
+                si != null ? si.getCpuPhysical() : 0,
+                si != null ? si.getCpuModel()    : "unknown"
         );
     }
 
@@ -65,11 +79,12 @@ public class OsSnapshotMapper {
         long avail = m.getAvailableBytes();
         long used  = m.getUsedBytes();
         Double pct = total > 0 ? round((double) used / total * 100.0) : null;
-
         return new MemoryMetrics(
                 total, avail, used, pct,
                 m.getSwapTotalBytes(),
-                m.getSwapUsedBytes()
+                m.getSwapUsedBytes(),
+                null,   // cachedBytes — Linux /proc/meminfo, not in gRPC stream
+                null    // buffersBytes — Linux /proc/meminfo, not in gRPC stream
         );
     }
 
@@ -79,13 +94,13 @@ public class OsSnapshotMapper {
         return os.getDisksList().stream()
                 .filter(d -> d.getTotalBytes() > 0)
                 .map(d -> new DiskMetrics(
-                        d.getMount(),                     // name fallback to mount
+                        d.getMount(),
                         d.getMount(),
                         d.getFsType(),
                         d.getTotalBytes(),
-                        d.getFreeBytes(),                 // usableBytes ≈ freeBytes
+                        d.getFreeBytes(),
                         d.getUsedBytes(),
-                        d.getUsedPct() > 0 ? d.getUsedPct() : null
+                        d.getUsedPct() > 0 ? (double) d.getUsedPct() : null
                 ))
                 .toList();
     }
@@ -107,13 +122,12 @@ public class OsSnapshotMapper {
 
     private HostInfo mapHostInfo(OsSnapshot os, SystemInfo si) {
         if (si == null) {
-            return new HostInfo("unknown", "unknown", "unknown", "unknown", null, null);
+            return new HostInfo("unknown", "unknown", "unknown", "unknown", 0L, null);
         }
         long bootTimeMs = si.getBootTime();
         long uptimeSec  = bootTimeMs > 0
                 ? (System.currentTimeMillis() - bootTimeMs) / 1000
-                : null != os.getProcess() ? os.getProcess().getUptimeMs() / 1000 : 0;
-
+                : os.getProcess().getUptimeMs() / 1000;
         return new HostInfo(
                 si.getHostname(),
                 si.getOsName(),
@@ -124,10 +138,77 @@ public class OsSnapshotMapper {
         );
     }
 
+    // ── Process Info ─────────────────────────────────────────────────────────
+
+    private ProcessMetrics mapProcess(ProcessInfo p) {
+        if (p == null || p.getPid() == 0) {
+            return new ProcessMetrics(null, null, null, null, null, null, null, null, null, null);
+        }
+        return new ProcessMetrics(
+                (int) p.getPid(),
+                emptyToNull(p.getProcessName()),
+                emptyToNull(p.getUser()),
+                emptyToNull(p.getWorkingDir()),
+                p.getStartTime() > 0 ? Instant.ofEpochMilli(p.getStartTime()) : null,
+                p.getUptimeMs() > 0  ? p.getUptimeMs() / 1000 : null,
+                p.getRssBytes()     > 0 ? p.getRssBytes()     : null,
+                p.getVirtualBytes() > 0 ? p.getVirtualBytes() : null,
+                p.getThreadCount()  > 0 ? p.getThreadCount()  : null,
+                p.getOpenFiles()    > 0 ? (long) p.getOpenFiles() : null
+        );
+    }
+
+    // ── Network interfaces ────────────────────────────────────────────────────
+
+    private List<NetworkInterfaceInfo> mapInterfaces(List<NetworkInterface> nics) {
+        return nics.stream().map(nic -> {
+            List<String> ipv4 = nic.getIpAddressesList().stream()
+                    .filter(ip -> ip.contains("."))
+                    .toList();
+            List<String> ipv6 = nic.getIpAddressesList().stream()
+                    .filter(ip -> ip.contains(":"))
+                    .toList();
+            long speedBps = nic.getSpeedMbps() > 0
+                    ? (long) nic.getSpeedMbps() * 1_000_000L : -1L;
+            boolean up = nic.getRxBytes() > 0 || nic.getTxBytes() > 0 || !nic.getIsLoopback();
+            return new NetworkInterfaceInfo(
+                    nic.getName(),
+                    nic.getDisplayName(),
+                    nic.getMacAddress(),
+                    ipv4, ipv6,
+                    speedBps,
+                    0L,     // mtu — not in proto
+                    up,
+                    nic.getRxBytes(),
+                    nic.getTxBytes(),
+                    nic.getRxPackets(),
+                    nic.getTxPackets(),
+                    nic.getRxErrors(),
+                    nic.getTxErrors(),
+                    0L,     // inDrops — not in proto
+                    0L      // outDrops — not in proto
+            );
+        }).toList();
+    }
+
+    // ── TCP empty stubs (not in gRPC stream) ─────────────────────────────────
+
+    private TcpStateCounts emptyTcpStates() {
+        return new TcpStateCounts(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, Collections.emptyMap());
+    }
+
+    private TcpQualityCounters emptyTcpQuality() {
+        return new TcpQualityCounters(null, null, null, null, null, null, null, null, null, null);
+    }
+
     // ── Helpers ───────────────────────────────────────────────────────────────
 
     private static Double nullIfZero(double v) {
         return v == 0.0 ? null : round(v);
+    }
+
+    private static String emptyToNull(String s) {
+        return (s == null || s.isEmpty()) ? null : s;
     }
 
     private static Double round(double v) {

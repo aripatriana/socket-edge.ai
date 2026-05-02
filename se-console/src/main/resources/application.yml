@@ -52,7 +52,7 @@ spring:
   # operators who need DB inspection should stop the service and use H2 Shell.
   h2:
     console:
-      enabled: false
+      enabled: true
 
   # Multipart upload limits — not used yet, but set conservative defaults now.
   servlet:
@@ -65,7 +65,7 @@ spring:
 # Access from operator workstations goes through SSH tunnel.
 # ============================================================================
 server:
-  address: 127.0.0.1
+  address: 0.0.0.0
   port: 8080
   compression:
     enabled: true
@@ -136,11 +136,6 @@ seconsole:
     jmx-isolb-latency:         false
     jmx-isolb-correlation:     false
 
-  se-core:
-    grpc-host: localhost       # se-core gRPC host
-    grpc-port: 9090            # se-core gRPC port (must match grpc.port JVM arg in se-core)
-    reconnect-delay-ms: 5000   # delay before re-subscribing after stream error
-
   retention:
     audit-days:          365
     config-versions-days: 90
@@ -149,6 +144,29 @@ seconsole:
     secret: ${SECONSOLE_JWT_SECRET:dev-only-secret-please-override-in-production-at-least-32-bytes}
     access-ttl: PT8H
     refresh-ttl: P7D
+
+  # ---------------------------------------------------------------------------
+  # Monitoring — console-side metrics pollers + history retention.
+  #
+  # Three scheduler-driven producers (SystemMetricsService, NetworkMetricsService,
+  # JvmMetricsService) each tick at the intervals below, writing to their
+  # AtomicReference cache AND persisting to console_*_snapshot (V4).
+  # Frontend reads /latest from the cache; /history reads from H2.
+  # Retention pruners run hourly (staggered minutes: :19, :21, :25).
+  # ---------------------------------------------------------------------------
+  monitoring:
+    system:
+      poll-interval-ms: 2000       # matches frontend refresh cadence
+      history:
+        retention-days: 7
+    network:
+      poll-interval-ms: 5000       # network probing is heavier; relax cadence
+      history:
+        retention-days: 7
+    jvm:
+      poll-interval-ms: 2000       # JMX MXBean calls are cheap
+      history:
+        retention-days: 7
 # ============================================================================
 # Logging — Logback config is in src/main/resources/logback-spring.xml,
 # this block just sets levels.

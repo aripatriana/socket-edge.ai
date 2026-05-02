@@ -1,13 +1,11 @@
-// Types matching the backend SystemMetricsDto shape.
-// Kept as one file so the contract is easy to find.
-
 export interface SystemMetrics {
-  timestamp: string; // ISO-8601
+  timestamp: string;
   cpu: CpuMetrics;
   memory: MemoryMetrics;
   disks: DiskMetrics[];
   fileDescriptors: FileDescriptorMetrics;
   host: HostInfo;
+  process: ProcessMetrics;
 }
 
 export interface CpuMetrics {
@@ -28,6 +26,8 @@ export interface MemoryMetrics {
   usedPercent: number | null;
   swapTotalBytes: number;
   swapUsedBytes: number;
+  cachedBytes: number | null;      // Linux only
+  buffersBytes: number | null;     // Linux only
 }
 
 export interface DiskMetrics {
@@ -51,6 +51,77 @@ export interface HostInfo {
   osName: string;
   osVersion: string;
   osArch: string;
+  uptimeSeconds: number;
+  bootTime: string;
+}
+
+/**
+ * Per-process info for the SE-Console JVM. Most fields nullable — OSHI
+ * may not resolve on rare occasions and platform coverage varies.
+ */
+export interface ProcessMetrics {
+  pid: number | null;
+  processName: string | null;
+  user: string | null;
+  workingDirectory: string | null;
+  startTime: string | null;        // ISO-8601 when present
   uptimeSeconds: number | null;
-  bootTime: string | null;
+  residentSetSizeBytes: number | null;
+  virtualMemorySizeBytes: number | null;
+  threadCount: number | null;
+  openFileCount: number | null;
+}
+
+/**
+ * One row from /api/console/system/history — maps directly to
+ * ConsoleSystemSnapshotEntity. Flat column shape (not the nested DTO),
+ * because this is what the DB stores and what chart code wants to
+ * iterate over. `disksJson` is a JSON-serialized DiskMetrics[] for
+ * drill-down views; parse on demand.
+ */
+export interface SystemSnapshotRow {
+  id: number;
+  capturedAt: string;
+
+  cpuSystemPct: number | null;
+  cpuProcessPct: number | null;
+  loadAvg1m: number | null;
+  loadAvg5m: number | null;
+  loadAvg15m: number | null;
+  cpuLogicalCores: number | null;
+  cpuPhysicalCores: number | null;
+  cpuModel: string | null;
+
+  memTotalBytes: number;
+  memAvailableBytes: number;
+  memUsedBytes: number;
+  memUsedPct: number | null;
+  swapTotalBytes: number;
+  swapUsedBytes: number;
+  memCachedBytes: number | null;
+  memBuffersBytes: number | null;
+
+  fdOpen: number | null;
+  fdMax: number | null;
+  fdUsedPct: number | null;
+
+  hostName: string | null;
+  osName: string | null;
+  osVersion: string | null;
+  osArch: string | null;
+  hostUptimeSeconds: number | null;
+  hostBootTime: string | null;
+
+  processPid: number | null;
+  processName: string | null;
+  processUser: string | null;
+  processWorkingDir: string | null;
+  processStartTime: string | null;
+  processUptimeSeconds: number | null;
+  processRssBytes: number | null;
+  processVmemBytes: number | null;
+  processThreadCount: number | null;
+  processOpenFiles: number | null;
+
+  disksJson: string | null;
 }

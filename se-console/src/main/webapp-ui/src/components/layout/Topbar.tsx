@@ -2,13 +2,8 @@ import { useEffect, useRef, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../../stores/authStore';
 import { authApi } from '../../api/auth';
+import { EngineHealthBadge } from '../channels/EngineHealthBadge';
 
-/**
- * Topbar. Shows:
- *   - Breadcrumb (derived from current route)
- *   - Live refresh indicator (pulsing dot + relative time)
- *   - User chip with sign-out dropdown
- */
 export function Topbar({ lastUpdated }: { lastUpdated?: Date | null }) {
   const location = useLocation();
   const navigate = useNavigate();
@@ -33,13 +28,13 @@ export function Topbar({ lastUpdated }: { lastUpdated?: Date | null }) {
     try {
       await authApi.logout();
     } catch {
-      // swallow — still clear local state
+      // swallow
     }
     clear();
     navigate('/login', { replace: true });
   }
 
-  const breadcrumb = routeLabel(location.pathname);
+  const breadcrumb = routeLabel(location.pathname, location.search);
 
   return (
     <header
@@ -53,8 +48,16 @@ export function Topbar({ lastUpdated }: { lastUpdated?: Date | null }) {
           <b className="text-foreground font-medium">{breadcrumb.sub}</b>
         </div>
       )}
+      {breadcrumb.tail && (
+        <div className="text-[12px] text-muted-foreground">
+          <span className="mr-2">·</span>
+          <span>{breadcrumb.tail}</span>
+        </div>
+      )}
 
       <div className="flex-1" />
+
+      <EngineHealthBadge />
 
       {lastUpdated && (
         <div className="flex items-center gap-2 text-[12px] text-muted-foreground">
@@ -96,12 +99,32 @@ export function Topbar({ lastUpdated }: { lastUpdated?: Date | null }) {
   );
 }
 
-function routeLabel(pathname: string): { title: string; sub?: string } {
+/**
+ * Compute breadcrumb from the URL. Returns {title, sub, tail} — three
+ * levels: top-level section / sub-section / contextual tail.
+ *
+ * <ul>
+ *   <li>/config?view=editor   → Configuration / Channel · Editor</li>
+ *   <li>/config?view=history  → Configuration / Channel · History</li>
+ * </ul>
+ */
+function routeLabel(pathname: string, search: string): {
+  title: string;
+  sub?: string;
+  tail?: string;
+} {
   if (pathname === '/' || pathname === '') return { title: 'Dashboard' };
   if (pathname.startsWith('/change-password'))
     return { title: 'Account', sub: 'Change password' };
   if (pathname.startsWith('/monitoring')) return { title: 'Monitoring' };
   if (pathname.startsWith('/channels')) return { title: 'Channels' };
+  if (pathname.startsWith('/config')) {
+    const params = new URLSearchParams(search);
+    const view = params.get('view');
+    const tail = view === 'history' ? 'History' : 'Editor';
+    return { title: 'Configuration', sub: 'Channel', tail };
+  }
+  if (pathname.startsWith('/logs')) return { title: 'Observability', sub: 'Logs' };
   return { title: 'SE-Console' };
 }
 

@@ -4,114 +4,93 @@ import java.time.Instant;
 import java.util.List;
 
 /**
- * JVM-internal metrics snapshot. Returned by GET /api/system/jvm.
- * Sourced from JMX/MBean API via se-core JvmMetricsCollector.
- *
- * Fields may be null when a value cannot be computed (e.g. usedPercent when max = -1).
- * Frontend displays "N/A" for nulls.
+ * JVM-level metrics snapshot from the console's own JVM (not the engine).
+ * Maps to the Monitoring → JVM tab per Foundation 6.1.
  */
 public record JvmMetricsDto(
-        Instant          timestamp,
-        String           gcImpl,
-        JvmProcessInfo   process,
-        HeapMetrics      heap,
-        HeapMetrics      nonHeap,
-        List<MemoryPoolMetrics>  pools,
-        List<GcCollectorMetrics> gc,
-        GcSummary        gcSummary,
-        ThreadMetrics    threads,
-        ClassMetrics     classes,
-        List<BufferPoolMetrics>  buffers
+        Instant timestamp,
+        MemoryArea heap,
+        MemoryArea nonHeap,
+        List<MemoryPool> pools,
+        List<GcCollector> gc,
+        ThreadMetrics threads,
+        ClassMetrics classes,
+        RuntimeInfo runtime,
+        DeadlockInfo deadlock
 ) {
 
-    /** JVM process identity. Stable across snapshots. */
-    public record JvmProcessInfo(
-            long   pid,
-            long   startTime,    // epoch millis
-            long   uptimeMs,
-            String javaVersion,
-            String vmName,
-            String vmVendor
+    public record MemoryArea(
+            long usedBytes,
+            long committedBytes,
+            long maxBytes,
+            long initBytes,
+            Double usedPercent
     ) {}
 
-    /**
-     * Top-level memory area (heap or non-heap) as reported by MemoryMXBean.
-     * usedPercent is null when maxBytes = -1 (non-heap: no upper bound defined).
-     */
-    public record HeapMetrics(
-            long   initBytes,
-            long   usedBytes,
-            long   committedBytes,
-            long   maxBytes,       // -1 if unlimited
-            Double usedPercent     // null if maxBytes = -1
-    ) {}
-
-    /**
-     * Per-region memory pool as reported by MemoryPoolMXBean.
-     * G1GC note: Eden/Survivor usedBytes may exceed committedBytes — use heap.usedBytes for totals.
-     */
-    public record MemoryPoolMetrics(
+    public record MemoryPool(
             String name,
-            String poolType,       // "HEAP" | "NON_HEAP"
-            long   usedBytes,
-            long   committedBytes,
-            long   maxBytes        // -1 if dynamic or unlimited
+            String type,
+            long usedBytes,
+            long committedBytes,
+            long maxBytes,
+            Double usedPercent
     ) {}
 
-    /**
-     * Per-GC-collector stats. Values are cumulative since JVM start.
-     * Consumers compute per-interval deltas by diffing successive snapshots.
-     *
-     * concurrent = true  → runs alongside app threads; collectionTimeMs is not a pause duration.
-     * concurrent = false → stop-the-world; collectionTimeMs = total pause time accumulated.
-     */
-    public record GcCollectorMetrics(
-            String  name,
-            boolean concurrent,
-            long    collectionCount,
-            long    collectionTimeMs
+    public record GcCollector(
+            String name,
+            long collectionCount,
+            long collectionTimeMs,
+            List<String> poolNames
     ) {}
 
-    /**
-     * Derived GC health summary — computed from STW collectors only.
-     * gcOverheadPercent = total STW pause time / JVM uptime * 100.
-     * fullGcOccurred = true if any Old/Major stop-the-world collector has run since JVM start.
-     */
-    public record GcSummary(
-            long   totalStwTimeMs,
-            Double gcOverheadPercent,
-            boolean fullGcOccurred
-    ) {}
-
-    /** Thread counts and state breakdown. nonDaemon = current - daemon. */
     public record ThreadMetrics(
-            int current,
-            int daemon,
-            int nonDaemon,
-            int peak,
-            int totalStarted,
-            int deadlocked,   // 0 = healthy; >0 = critical
-            int runnable,
-            int blocked,
-            int waiting,
-            int timedWaiting
+            int liveCount,
+            int daemonCount,
+            int peakCount,
+            long totalStartedCount,
+            Integer blockedCount,
+            Integer waitingCount,
+            Integer timedWaitingCount,
+            Integer runnableCount
     ) {}
 
-    /** Class loading counters. All values cumulative since JVM start. */
     public record ClassMetrics(
-            int loaded,
-            int totalLoaded,
-            int unloaded
+            int loadedCount,
+            long totalLoadedCount,
+            long unloadedCount
+    ) {}
+
+    public record RuntimeInfo(
+            String vmName,
+            String vmVendor,
+            String vmVersion,
+            String specVersion,
+            long uptimeMillis,
+            long startTime,
+            List<String> inputArguments
     ) {}
 
     /**
-     * NIO buffer pool ("direct" | "mapped").
-     * Monotonically growing direct.count is an off-heap leak indicator.
+     * Deadlock detection summary. When `count == 0`, no threads are deadlocked
+     * and `threads` is empty. When non-zero, each entry lists a deadlocked
+     * thread along with the lock it's waiting on and who holds that lock.
+     *
+     * Semantics per ThreadMXBean.findDeadlockedThreads(): returns only cycles
+     * involving object monitors AND ownable synchronizers. For monitor-only
+     * cycles, use findMonitorDeadlockedThreads — we cover both here.
      */
-    public record BufferPoolMetrics(
-            String name,
-            int    count,
-            long   usedBytes,
-            long   totalCapacityBytes
+    public record DeadlockInfo(
+            int count,
+            List<DeadlockedThread> threads
+    ) {}
+
+    public record DeadlockedThread(
+            long threadId,
+            String threadName,
+            String threadState,        // e.g. "BLOCKED", "WAITING"
+            String lockName,           // what this thread is waiting on
+            Long lockOwnerId,          // who holds the lock (may be null)
+            String lockOwnerName,      // name of owner thread (may be null)
+            List<String> stackTrace    // formatted frames (max 12 for banner preview)
     ) {}
 }

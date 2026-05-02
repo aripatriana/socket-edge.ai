@@ -4,14 +4,13 @@ import java.time.Instant;
 import java.util.List;
 
 /**
- * System-level metrics snapshot. Returned by GET /api/system/metrics.
- * Shape maps 1:1 to the "Monitoring → System" tab and the Dashboard health strip.
+ * System-level metrics snapshot. Sources: OSHI + JVM standard MXBean.
+ * Per Foundation 6.1, maps to Monitoring → System tab (and contributes
+ * to Dashboard landing page).
  *
- * Category A per the gap analysis document: all fields are satisfiable without
- * engine JMX — OSHI + standard JVM MXBeans are sufficient.
- *
- * Fields may be null on platforms that don't expose them (e.g. load average on Windows,
- * /proc/* readings on non-Linux). Frontend displays "N/A" for nulls.
+ * Extended in Chat 3d with:
+ *  - MemoryMetrics: cachedBytes, buffersBytes (Linux /proc/meminfo; null elsewhere)
+ *  - ProcessMetrics: PID, user, start time, RSS, virtual memory, working dir
  */
 public record SystemMetricsDto(
         Instant timestamp,
@@ -19,10 +18,10 @@ public record SystemMetricsDto(
         MemoryMetrics memory,
         List<DiskMetrics> disks,
         FileDescriptorMetrics fileDescriptors,
-        HostInfo host
+        HostInfo host,
+        ProcessMetrics process
 ) {
 
-    /** CPU usage and load averages. Values are percentages in 0..100. */
     public record CpuMetrics(
             Double processCpuPercent,
             Double systemCpuPercent,
@@ -34,41 +33,59 @@ public record SystemMetricsDto(
             String model
     ) {}
 
-    /** Physical memory + swap. Sizes in bytes. */
     public record MemoryMetrics(
             long totalBytes,
             long availableBytes,
             long usedBytes,
             Double usedPercent,
             long swapTotalBytes,
-            long swapUsedBytes
+            long swapUsedBytes,
+            Long cachedBytes,         // Linux /proc/meminfo; null on Win/Mac
+            Long buffersBytes         // Linux /proc/meminfo; null on Win/Mac
     ) {}
 
-    /** Per-mount disk usage. */
     public record DiskMetrics(
-            String name,           // human label, e.g. "/" or "C:"
-            String mount,          // mount point
-            String fsType,         // ext4, ntfs, apfs, ...
+            String name,
+            String mount,
+            String fsType,
             long totalBytes,
             long usableBytes,
             long usedBytes,
             Double usedPercent
     ) {}
 
-    /** Unix-only file descriptor counters. Null fields on Windows. */
     public record FileDescriptorMetrics(
             Long open,
             Long max,
             Double usedPercent
     ) {}
 
-    /** Host identity + uptime. Uptime in seconds. */
     public record HostInfo(
             String hostname,
             String osName,
             String osVersion,
             String osArch,
-            Long uptimeSeconds,
+            long uptimeSeconds,
             Instant bootTime
+    ) {}
+
+    /**
+     * Per-process info for the SE-Console JVM itself.
+     * Complements CpuMetrics.processCpuPercent / JvmMetrics heap info.
+     *
+     * Fields may be null when OSHI can't resolve the own process (very rare)
+     * or when the platform doesn't expose them.
+     */
+    public record ProcessMetrics(
+            Integer pid,
+            String processName,
+            String user,
+            String workingDirectory,
+            Instant startTime,
+            Long uptimeSeconds,
+            Long residentSetSizeBytes,   // RSS — physical memory used by process
+            Long virtualMemorySizeBytes, // virtual memory
+            Integer threadCount,
+            Long openFileCount           // may differ from FileDescriptorMetrics
     ) {}
 }

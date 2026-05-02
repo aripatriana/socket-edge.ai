@@ -1,0 +1,51 @@
+# =============================================================================
+# INTEGRATION SNIPPET — paste this block into src/main/resources/application.yml
+# Add it as a child of the existing top-level `seconsole:` section, alongside
+# `isolb:`, `jmx:`, `security:`, `features:`, `retention:`, `jwt:`.
+#
+# Chat 3c-1a additions only. No existing keys touched.
+# =============================================================================
+
+  # ---------------------------------------------------------------------------
+  # Engine REST client — socket-edge NettyHttpServer on loopback.
+  # Defaults target the engine's out-of-the-box state (auth.mode=none, :9001).
+  # ---------------------------------------------------------------------------
+  engine:
+    enabled: true
+    base-url: http://127.0.0.1:9001
+    connect-timeout-ms: 2000
+    read-timeout-ms: 5000
+    auth:
+      enabled: false           # flip true + set creds when engine auth.mode=basic
+      username: admin
+      password: changeit
+    health:
+      poll-interval-ms: 5000   # drives topbar engine badge
+    metrics:
+      poll-interval-ms: 2000   # main channels refresh rate
+    config:
+      poll-interval-ms: 30000  # /config/channels — slow, changes rarely
+
+    # -------------------------------------------------------------------------
+    # SE-Core channel snapshot poller — drives the /channels pages.
+    # Architecture (per snapshot_seconsole.png): single GET → cache + H2.
+    # Replaces the pre-rewrite 3-endpoint fan-out (/socket/status, /metrics,
+    # /queues). History lives in parent-child tables:
+    #   engine_channel_snapshot        (header, one row per tick)
+    #   engine_channel_socket_sample   (detail, one row per socket per tick)
+    # -------------------------------------------------------------------------
+    channels:
+      poll-interval-ms: 2000       # 2s — same cadence as JVM snapshot
+      history:
+        retention-days: 7          # prune header rows older than this (pruner runs hourly)
+
+    # -------------------------------------------------------------------------
+    # SE-Core JVM snapshot poller — drives the Monitoring → JVM-SE tab.
+    # Feeds two sinks on every tick (per snapshot_seconsole.png):
+    #   1. AtomicReference cache in EngineJvmSnapshotService  (hot path for UI)
+    #   2. H2 time-series table engine_jvm_snapshot            (history / retention)
+    # -------------------------------------------------------------------------
+    jvm:
+      poll-interval-ms: 2000       # 2s — same cadence as channel snapshots
+      history:
+        retention-days: 7          # prune rows older than this (pruner runs hourly)

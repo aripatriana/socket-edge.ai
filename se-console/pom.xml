@@ -148,6 +148,13 @@
             <artifactId>grpc-stub</artifactId>
         </dependency>
 
+        <!-- OS metrics — OSHI (SystemMetricsService, NetworkMetricsService) -->
+        <dependency>
+            <groupId>com.github.oshi</groupId>
+            <artifactId>oshi-core</artifactId>
+            <version>${oshi.version}</version>
+        </dependency>
+
         <!--
           Typesafe Config — HOCON parser for channel.conf validation.
         -->
@@ -209,6 +216,13 @@
                     <mainClass>id.co.jalin.seconsole.SeConsoleApplication</mainClass>
                     <executable>true</executable>
                 </configuration>
+                <executions>
+                    <execution>
+                        <goals>
+                            <goal>repackage</goal>
+                        </goals>
+                    </execution>
+                </executions>
             </plugin>
 
             <!--
@@ -271,6 +285,14 @@
                 <groupId>org.codehaus.gmavenplus</groupId>
                 <artifactId>gmavenplus-plugin</artifactId>
                 <version>3.0.2</version>
+                <dependencies>
+                    <dependency>
+                        <groupId>org.apache.groovy</groupId>
+                        <artifactId>groovy</artifactId>
+                        <version>4.0.15</version>
+                        <scope>runtime</scope>
+                    </dependency>
+                </dependencies>
                 <executions>
                     <execution>
                         <id>check-jar-size</id>

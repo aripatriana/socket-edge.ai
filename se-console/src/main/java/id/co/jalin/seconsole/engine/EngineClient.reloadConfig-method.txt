@@ -1,0 +1,59 @@
+// =========================================================================
+// Config reload — Chunk B
+// =========================================================================
+//
+// COPY the method below into EngineClient.java, right after postSocketAction()
+// and before the "Internal" section comment.
+//
+// The method mirrors postSocketAction's envelope-handling — same parse path,
+// same error shape, same auth plumbing — so if the engine's /config/reload
+// responds with an EngineResponse envelope, nothing else needs to change.
+//
+// If the engine's response shape differs, adjust the TypeReference below.
+// =========================================================================
+
+/**
+ * Tell the engine to re-read its configuration. Returns the engine's
+ * {@code result} message (empty string when the engine doesn't include one).
+ *
+ * <p>Engine endpoint: {@code POST /config/reload} — reloads all whitelisted
+ * config files. Currently we don't pass a file name; the engine decides
+ * which files to touch.
+ *
+ * @throws EngineClientException on transport failure or non-ok envelope.
+ */
+public String reloadConfig() {
+    String path = "/config/reload";
+    String body;
+    try {
+        RestClient.RequestBodySpec spec = restClient.post().uri(path);
+        if (props.getAuth().isEnabled()) {
+            spec = spec.header(HttpHeaders.AUTHORIZATION, basicAuthHeader());
+        }
+        body = spec.retrieve().body(String.class);
+    } catch (RestClientException ex) {
+        throw new EngineClientException("Transport error calling POST " + path + ": " + ex.getMessage(), ex);
+    }
+
+    if (body == null || body.isEmpty()) {
+        // Some reload endpoints respond with 200 + empty body. Treat as success.
+        return "";
+    }
+
+    EngineResponse<Object> envelope;
+    try {
+        envelope = mapper.readValue(body, new TypeReference<EngineResponse<Object>>() {});
+    } catch (Exception ex) {
+        throw new EngineClientException("Failed to parse response from POST " + path + ": " + ex.getMessage(), ex);
+    }
+
+    if (envelope == null) {
+        throw new EngineClientException("Null envelope from POST " + path);
+    }
+    if (!envelope.ok()) {
+        throw new EngineClientException(
+                "Engine returned FAILED for POST " + path + ": "
+                        + envelope.messageOrDefault("no message"));
+    }
+    return envelope.message() == null ? "" : envelope.message();
+}
