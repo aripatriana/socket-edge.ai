@@ -70,9 +70,9 @@ public class UserManagementController {
 
     @GetMapping
     public ResponseEntity<?> list(
-            @RequestParam(required = false) String search,
-            @RequestParam(required = false) String role,
-            @RequestParam(required = false) String status
+            @RequestParam(name = "search", required = false) String search,
+            @RequestParam(name = "role", required = false) String role,
+            @RequestParam(name = "status", required = false) String status
     ) {
         Role roleFilter = null;
         UserStatus statusFilter = null;
@@ -153,7 +153,7 @@ public class UserManagementController {
     @PatchMapping("/{id}/status")
     public ResponseEntity<?> setStatus(
             @PathVariable Long id,
-            @RequestParam String value,
+            @RequestParam("value") String value,
             @AuthenticationPrincipal SecurityUser actor
     ) {
         try {
