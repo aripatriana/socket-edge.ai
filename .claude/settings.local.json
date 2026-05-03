@@ -1,7 +1,26 @@
 {
   "permissions": {
     "allow": [
-      "Bash(find:*)"
+      "Bash(find:*)",
+      "Bash(Get-ChildItem -Path \"C:\\\\Users\\\\ari.patriana\\\\DATA\\\\Project\\\\Github\\\\socket-edge.ai\" -Force)",
+      "Bash(Select-Object Name, PSIsContainer)",
+      "Bash(xargs grep *)",
+      "Bash(mvn generate-sources *)",
+      "Bash(Get-ChildItem -Recurse -Path \"se-core\" -Filter \"*.java\")",
+      "Bash(Select-Object -ExpandProperty FullName)",
+      "Bash(Sort-Object)",
+      "Bash(mvn compile *)",
+      "Bash(echo \"EXIT:$?\")",
+      "Bash(Get-ChildItem -Path \"se-console\" -Recurse -Directory)",
+      "Bash(echo \"EXIT_CODE=$?\")",
+      "Bash(git add *)",
+      "Bash(git commit -m ' *)",
+      "Bash(mvn compiler:compile -pl se-console -am -q)",
+      "Bash(npm run *)",
+      "Bash(npx tsc *)",
+      "Bash(node_modules/.bin/tsc --noEmit)",
+      "Bash(git reset *)",
+      "Bash(git commit *)"
     ]
   }
 }
