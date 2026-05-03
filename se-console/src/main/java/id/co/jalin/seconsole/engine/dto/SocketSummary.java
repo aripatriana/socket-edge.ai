@@ -30,21 +30,12 @@ public record SocketSummary(
     ) {}
 
     public record Metrics(
-            Latency latency,
-            Tps pressureTps,
-            Tps throughputTps
+            Stat latency,
+            Stat pressureTps,
+            Stat throughputTps
     ) {}
 
-    public record Latency(
-            long avgNs,
-            long minNs,
-            long maxNs,
-            long p90Ns,
-            long p95Ns,
-            long p99Ns
-    ) {}
-
-    public record Tps(
+    public record Stat(
             long avg,
             long min,
             long max,

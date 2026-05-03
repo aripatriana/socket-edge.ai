@@ -20,7 +20,8 @@
       "Bash(npx tsc *)",
       "Bash(node_modules/.bin/tsc --noEmit)",
       "Bash(git reset *)",
-      "Bash(git commit *)"
+      "Bash(git commit *)",
+      "Bash(grep -E \"\\\\.\\(java|tsx?|proto\\)$\")"
     ]
   }
 }

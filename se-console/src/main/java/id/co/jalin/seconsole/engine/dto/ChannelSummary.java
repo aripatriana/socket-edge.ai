@@ -28,8 +28,8 @@ public record ChannelSummary(
 
     public record Aggregate(
             Latency latency,
-            PressureTps pressureTps,
-            ThroughputTps throughputTps,
+            TpsStat pressureTps,
+            TpsStat throughputTps,
 
             long totalMsgIn,
             long totalMsgOut,
@@ -40,20 +40,14 @@ public record ChannelSummary(
 
     /** Worst-of across sockets — max values are the actionable signal. */
     public record Latency(
-            long maxAvgNs,
-            long maxMaxNs,
-            long maxP95Ns,
-            long maxP99Ns
-    ) {}
-
-    public record PressureTps(
-            long totalAvg,
             long maxAvg,
+            long maxMax,
             long maxP95,
             long maxP99
     ) {}
 
-    public record ThroughputTps(
+    /** Shared shape for pressure and throughput TPS aggregates. */
+    public record TpsStat(
             long totalAvg,
             long maxAvg,
             long maxP95,

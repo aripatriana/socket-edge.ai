@@ -270,15 +270,15 @@ public class EngineChannelHistoryService {
         List<SocketSummary.Metrics> out = new ArrayList<>(rows.size());
         for (EngineChannelSocketSampleEntity r : rows) {
             out.add(new SocketSummary.Metrics(
-                new SocketSummary.Latency(
+                new SocketSummary.Stat(
                     r.getLatAvgNs(), r.getLatMinNs(), r.getLatMaxNs(),
-                    r.getLatP90Ns(), r.getLatP95Ns()),
-                new SocketSummary.Tps(
+                    r.getLatP90Ns(), r.getLatP95Ns(), 0L),
+                new SocketSummary.Stat(
                     r.getPressureAvg(), r.getPressureMin(), r.getPressureMax(),
-                    r.getPressureP90(), r.getPressureP95()),
-                new SocketSummary.Tps(
+                    r.getPressureP90(), r.getPressureP95(), 0L),
+                new SocketSummary.Stat(
                     r.getThroughputAvg(), r.getThroughputMin(), r.getThroughputMax(),
-                    r.getThroughputP90(), r.getThroughputP95())
+                    r.getThroughputP90(), r.getThroughputP95(), 0L)
             ));
         }
         return out;

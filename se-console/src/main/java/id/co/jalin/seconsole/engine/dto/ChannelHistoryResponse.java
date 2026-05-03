@@ -61,8 +61,8 @@ public record ChannelHistoryResponse(
             long t,
             String state,
             long queueDepth,
-            SocketSummary.Latency latency,
-            SocketSummary.Tps pressureTps,
-            SocketSummary.Tps throughputTps
+            SocketSummary.Stat latency,
+            SocketSummary.Stat pressureTps,
+            SocketSummary.Stat throughputTps
     ) {}
 }

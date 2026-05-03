@@ -110,27 +110,21 @@ public final class GrpcChannelSnapshotMapper {
     private static SocketSummary.Metrics toMetrics(SocketMetrics m) {
         if (m == null) {
             return new SocketSummary.Metrics(
-                    new SocketSummary.Latency(0, 0, 0, 0, 0, 0),
-                    new SocketSummary.Tps(0, 0, 0, 0, 0, 0),
-                    new SocketSummary.Tps(0, 0, 0, 0, 0, 0)
+                    new SocketSummary.Stat(0, 0, 0, 0, 0, 0),
+                    new SocketSummary.Stat(0, 0, 0, 0, 0, 0),
+                    new SocketSummary.Stat(0, 0, 0, 0, 0, 0)
             );
         }
         return new SocketSummary.Metrics(
-                toLatency(m.getLatencyNs()),
-                toTps(m.getPressureTps()),
-                toTps(m.getThroughputTps())
+                toStat(m.getLatencyNs()),
+                toStat(m.getPressureTps()),
+                toStat(m.getThroughputTps())
         );
     }
 
-    private static SocketSummary.Latency toLatency(StatSummary s) {
-        if (s == null) return new SocketSummary.Latency(0, 0, 0, 0, 0, 0);
-        return new SocketSummary.Latency(s.getAvg(), s.getMin(), s.getMax(),
-                s.getP90(), s.getP95(), s.getP99());
-    }
-
-    private static SocketSummary.Tps toTps(StatSummary s) {
-        if (s == null) return new SocketSummary.Tps(0, 0, 0, 0, 0, 0);
-        return new SocketSummary.Tps(s.getAvg(), s.getMin(), s.getMax(),
+    private static SocketSummary.Stat toStat(StatSummary s) {
+        if (s == null) return new SocketSummary.Stat(0, 0, 0, 0, 0, 0);
+        return new SocketSummary.Stat(s.getAvg(), s.getMin(), s.getMax(),
                 s.getP90(), s.getP95(), s.getP99());
     }
 

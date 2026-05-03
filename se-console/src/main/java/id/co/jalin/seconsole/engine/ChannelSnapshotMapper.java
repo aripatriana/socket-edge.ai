@@ -73,26 +73,26 @@ public final class ChannelSnapshotMapper {
     private static SocketSummary.Metrics toMetrics(ChannelSnapshot.Metrics m) {
         if (m == null) {
             return new SocketSummary.Metrics(
-                    new SocketSummary.Latency(0, 0, 0, 0, 0, 0),
-                    new SocketSummary.Tps(0, 0, 0, 0, 0, 0),
-                    new SocketSummary.Tps(0, 0, 0, 0, 0, 0)
+                    new SocketSummary.Stat(0, 0, 0, 0, 0, 0),
+                    new SocketSummary.Stat(0, 0, 0, 0, 0, 0),
+                    new SocketSummary.Stat(0, 0, 0, 0, 0, 0)
             );
         }
         return new SocketSummary.Metrics(
-                toLatency(m.latency()),
-                toTps(m.pressureTps()),
-                toTps(m.throughputTps())
+                toStat(m.latency()),
+                toStat(m.pressureTps()),
+                toStat(m.throughputTps())
         );
     }
 
-    private static SocketSummary.Latency toLatency(ChannelSnapshot.Latency l) {
-        if (l == null) return new SocketSummary.Latency(0, 0, 0, 0, 0, 0);
-        return new SocketSummary.Latency(l.avgNs(), l.minNs(), l.maxNs(), l.p90Ns(), l.p95Ns(), 0);
+    private static SocketSummary.Stat toStat(ChannelSnapshot.Latency l) {
+        if (l == null) return new SocketSummary.Stat(0, 0, 0, 0, 0, 0);
+        return new SocketSummary.Stat(l.avgNs(), l.minNs(), l.maxNs(), l.p90Ns(), l.p95Ns(), 0);
     }
 
-    private static SocketSummary.Tps toTps(ChannelSnapshot.Tps t) {
-        if (t == null) return new SocketSummary.Tps(0, 0, 0, 0, 0, 0);
-        return new SocketSummary.Tps(t.avg(), t.min(), t.max(), t.p90(), t.p95(), 0);
+    private static SocketSummary.Stat toStat(ChannelSnapshot.Tps t) {
+        if (t == null) return new SocketSummary.Stat(0, 0, 0, 0, 0, 0);
+        return new SocketSummary.Stat(t.avg(), t.min(), t.max(), t.p90(), t.p95(), 0);
     }
 
     // ── Aggregation (shared with GrpcChannelSnapshotMapper) ──────────────────
@@ -123,23 +123,23 @@ public final class ChannelSnapshotMapper {
             if (!healthy) allHealthy = false;
             if (!"DOWN".equals(st) && !"STANDBY".equals(st) && !st.isEmpty()) allDownOrStandby = false;
 
-            SocketSummary.Tps p = s.metrics().pressureTps();
+            SocketSummary.Stat p = s.metrics().pressureTps();
             totalPressureAvg += p.avg();
             maxPressureAvg    = Math.max(maxPressureAvg, p.avg());
             maxPressureP95    = Math.max(maxPressureP95, p.p95());
             maxPressureP99    = Math.max(maxPressureP99, p.p99());
 
-            SocketSummary.Tps t = s.metrics().throughputTps();
+            SocketSummary.Stat t = s.metrics().throughputTps();
             totalThroughputAvg += t.avg();
             maxThroughputAvg    = Math.max(maxThroughputAvg, t.avg());
             maxThroughputP95    = Math.max(maxThroughputP95, t.p95());
             maxThroughputP99    = Math.max(maxThroughputP99, t.p99());
 
-            SocketSummary.Latency lat = s.metrics().latency();
-            maxLatencyAvg = Math.max(maxLatencyAvg, lat.avgNs());
-            maxLatencyMax = Math.max(maxLatencyMax, lat.maxNs());
-            maxLatencyP95 = Math.max(maxLatencyP95, lat.p95Ns());
-            maxLatencyP99 = Math.max(maxLatencyP99, lat.p99Ns());
+            SocketSummary.Stat lat = s.metrics().latency();
+            maxLatencyAvg = Math.max(maxLatencyAvg, lat.avg());
+            maxLatencyMax = Math.max(maxLatencyMax, lat.max());
+            maxLatencyP95 = Math.max(maxLatencyP95, lat.p95());
+            maxLatencyP99 = Math.max(maxLatencyP99, lat.p99());
 
             SocketSummary.Queue q = s.queue();
             totalMsgIn    += q.msgIn();
@@ -167,8 +167,8 @@ public final class ChannelSnapshotMapper {
                 name, aggregateState, up, sockets.size(),
                 new ChannelSummary.Aggregate(
                         new ChannelSummary.Latency(maxLatencyAvg, maxLatencyMax, maxLatencyP95, maxLatencyP99),
-                        new ChannelSummary.PressureTps(totalPressureAvg, maxPressureAvg, maxPressureP95, maxPressureP99),
-                        new ChannelSummary.ThroughputTps(totalThroughputAvg, maxThroughputAvg, maxThroughputP95, maxThroughputP99),
+                        new ChannelSummary.TpsStat(totalPressureAvg, maxPressureAvg, maxPressureP95, maxPressureP99),
+                        new ChannelSummary.TpsStat(totalThroughputAvg, maxThroughputAvg, maxThroughputP95, maxThroughputP99),
                         totalMsgIn, totalMsgOut, totalInFlight, totalErrCnt, maxLastErr
                 ),
                 listenPort, clientStrategy,
