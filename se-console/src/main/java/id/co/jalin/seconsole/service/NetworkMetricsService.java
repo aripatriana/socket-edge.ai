@@ -5,26 +5,24 @@ import id.co.jalin.seconsole.dto.response.NetworkMetricsDto;
 import id.co.jalin.seconsole.grpc.GrpcMetricsSubscriber;
 import id.co.jalin.seconsole.grpc.OsSnapshotMapper;
 import id.co.jalin.seconsole.metrics.history.ConsoleNetworkHistoryService;
+import jakarta.annotation.PostConstruct;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 
 import java.time.Instant;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicReference;
 
 /**
- * Network metrics producer — reads from the se-core gRPC stream.
+ * Network metrics cache — updated event-driven via {@link GrpcMetricsSubscriber.MetricsListener}.
  *
- * <p>Maps OsSnapshot.networks[] to NetworkMetricsDto. Fields not available
- * via gRPC (TCP state counts, TCP quality counters, listening ports) are
- * returned as empty — they require /proc/net/* parsing which is only done
- * on the se-core host directly.
- *
- * <p>Cadence: {@code seconsole.monitoring.network.poll-interval-ms} (default 5000ms).
+ * <p>Fields not available via gRPC stream (TCP state counts, TCP quality counters,
+ * listening ports) are returned as empty — they require /proc/net/* parsing
+ * which is only done on the se-core host directly.
  */
 @Service
-public class NetworkMetricsService {
+public class NetworkMetricsService implements GrpcMetricsSubscriber.MetricsListener {
 
     private static final Logger log = LoggerFactory.getLogger(NetworkMetricsService.class);
 
@@ -42,27 +40,38 @@ public class NetworkMetricsService {
         this.historyService = historyService;
     }
 
-    @Scheduled(fixedDelayString = "${seconsole.monitoring.network.poll-interval-ms:5000}")
-    public void poll() {
+    @PostConstruct
+    public void init() {
+        subscriber.addListener(this);
+    }
+
+    @Override
+    public void onBundle(MetricsBundle bundle) {
         try {
-            MetricsBundle bundle = subscriber.getLatestBundle();
-            if (bundle == null || !bundle.hasOs()) {
-                CacheEntry prev = cache.get();
-                cache.set(new CacheEntry(prev.metrics(), false,
-                        Instant.now().toEpochMilli(), "Waiting for gRPC stream"));
+            if (!bundle.hasOs()) {
+                markUnreachable("No OS snapshot in bundle");
                 return;
             }
             NetworkMetricsDto fresh = mapper.toNetworkDto(bundle);
             cache.set(new CacheEntry(fresh, true, Instant.now().toEpochMilli(), null));
-            historyService.record(fresh);
+            CompletableFuture.runAsync(() -> historyService.record(fresh));
         } catch (Exception ex) {
-            CacheEntry prev = cache.get();
-            cache.set(new CacheEntry(prev.metrics(), false, Instant.now().toEpochMilli(), ex.getMessage()));
-            log.warn("Network metrics poll from gRPC failed: {}", ex.getMessage());
+            markUnreachable(ex.getMessage());
+            log.warn("Network metrics mapping failed: {}", ex.getMessage());
         }
     }
 
+    @Override
+    public void onDisconnect(String reason) {
+        markUnreachable(reason);
+    }
+
     public CacheEntry current() { return cache.get(); }
+
+    private void markUnreachable(String reason) {
+        CacheEntry prev = cache.get();
+        cache.set(new CacheEntry(prev.metrics(), false, Instant.now().toEpochMilli(), reason));
+    }
 
     public record CacheEntry(
             NetworkMetricsDto metrics,

@@ -4,7 +4,6 @@ import com.socket.edge.grpc.Empty;
 import com.socket.edge.grpc.MetricsBundle;
 import com.socket.edge.grpc.SystemInfo;
 import io.grpc.Status;
-import io.grpc.StatusRuntimeException;
 import io.grpc.stub.StreamObserver;
 import jakarta.annotation.PostConstruct;
 import jakarta.annotation.PreDestroy;
@@ -13,6 +12,8 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
+import java.util.List;
+import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
@@ -20,25 +21,34 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 
 /**
- * Subscribes to the se-core metrics stream and maintains the latest MetricsBundle.
+ * Subscribes to the se-core metrics stream and fans out each bundle to
+ * registered {@link MetricsListener}s the moment it arrives (event-driven).
  *
  * On startup, also fetches static SystemInfo from se-core once.
- * If the stream is interrupted (se-core restart, network blip), re-subscribes
- * automatically after a configurable delay.
- *
- * Downstream: GrpcMetricsSubscriber.getLatestBundle() is called by SystemMetricsService.
+ * If the stream is interrupted, re-subscribes after a configurable delay
+ * and notifies listeners via {@link MetricsListener#onDisconnect}.
  */
 @Component
 public class GrpcMetricsSubscriber {
 
     private static final Logger log = LoggerFactory.getLogger(GrpcMetricsSubscriber.class);
 
+    /**
+     * Implement this interface and call {@link #addListener} to receive
+     * metric bundles as they arrive from se-core without polling.
+     */
+    public interface MetricsListener {
+        void onBundle(MetricsBundle bundle);
+        default void onDisconnect(String reason) {}
+    }
+
     private final CoreGrpcClient client;
     private final long           reconnectDelayMs;
 
-    private final AtomicReference<MetricsBundle> latestBundle    = new AtomicReference<>();
-    private final AtomicReference<SystemInfo>    cachedSysInfo   = new AtomicReference<>();
-    private final AtomicBoolean                  running         = new AtomicBoolean(true);
+    private final AtomicReference<MetricsBundle> latestBundle  = new AtomicReference<>();
+    private final AtomicReference<SystemInfo>    cachedSysInfo = new AtomicReference<>();
+    private final AtomicBoolean                  running       = new AtomicBoolean(true);
+    private final List<MetricsListener>          listeners     = new CopyOnWriteArrayList<>();
     private       ScheduledExecutorService       reconnectPool;
 
     public GrpcMetricsSubscriber(
@@ -67,14 +77,18 @@ public class GrpcMetricsSubscriber {
         }
     }
 
-    // ── Public accessors ──────────────────────────────────────────────────────
+    // ── Listener registration ─────────────────────────────────────────────────
 
-    /** Returns the latest MetricsBundle from se-core, or null if not yet received. */
+    public void addListener(MetricsListener listener) {
+        listeners.add(listener);
+    }
+
+    // ── Public accessors (kept for callers that need a point-in-time read) ────
+
     public MetricsBundle getLatestBundle() {
         return latestBundle.get();
     }
 
-    /** Returns the cached static SystemInfo from se-core, or null if unavailable. */
     public SystemInfo getCachedSystemInfo() {
         return cachedSysInfo.get();
     }
@@ -103,14 +117,17 @@ public class GrpcMetricsSubscriber {
             @Override
             public void onNext(MetricsBundle bundle) {
                 latestBundle.set(bundle);
+                notifyBundle(bundle);
             }
 
             @Override
             public void onError(Throwable t) {
                 if (!running.get()) return;
                 Status status = Status.fromThrowable(t);
+                String reason = status.getCode() + ": " + t.getMessage();
                 log.warn("Metrics stream error ({}), reconnecting in {}ms: {}",
                         status.getCode(), reconnectDelayMs, t.getMessage());
+                notifyDisconnect(reason);
                 scheduleReconnect();
             }
 
@@ -118,14 +135,35 @@ public class GrpcMetricsSubscriber {
             public void onCompleted() {
                 if (!running.get()) return;
                 log.info("Metrics stream completed by server, reconnecting in {}ms", reconnectDelayMs);
+                notifyDisconnect("Stream completed by server");
                 scheduleReconnect();
             }
         });
     }
 
+    private void notifyBundle(MetricsBundle bundle) {
+        for (MetricsListener l : listeners) {
+            try {
+                l.onBundle(bundle);
+            } catch (Exception e) {
+                log.warn("MetricsListener.onBundle failed: {}", e.getMessage());
+            }
+        }
+    }
+
+    private void notifyDisconnect(String reason) {
+        for (MetricsListener l : listeners) {
+            try {
+                l.onDisconnect(reason);
+            } catch (Exception e) {
+                log.warn("MetricsListener.onDisconnect failed: {}", e.getMessage());
+            }
+        }
+    }
+
     private void scheduleReconnect() {
         reconnectPool.schedule(() -> {
-            fetchSystemInfo();   // refresh static info too (se-core may have restarted)
+            fetchSystemInfo();
             subscribe();
         }, reconnectDelayMs, TimeUnit.MILLISECONDS);
     }
