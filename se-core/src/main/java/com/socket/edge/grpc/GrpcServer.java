@@ -1,5 +1,7 @@
 package com.socket.edge.grpc;
 
+import com.socket.edge.core.TelemetryRegistry;
+import com.socket.edge.grpc.channel.ChannelSnapshotCollector;
 import com.socket.edge.grpc.jvm.JvmMetricsCollector;
 import com.socket.edge.grpc.os.OsMetricsCollector;
 import com.socket.edge.grpc.os.SystemInfoCollector;
@@ -32,43 +34,42 @@ public class GrpcServer {
 
     private static final Logger log = LoggerFactory.getLogger(GrpcServer.class);
 
-    private final AdminHttpService adminService;
-    private final ReloadCfgService reloadService;
+    private final AdminHttpService  adminService;
+    private final ReloadCfgService  reloadService;
+    private final TelemetryRegistry telemetryRegistry;
 
     private Server             server;
     private MetricsBroadcaster broadcaster;
 
-    public GrpcServer(AdminHttpService adminService, ReloadCfgService reloadService) {
-        this.adminService  = adminService;
-        this.reloadService = reloadService;
+    public GrpcServer(AdminHttpService adminService,
+                      ReloadCfgService reloadService,
+                      TelemetryRegistry telemetryRegistry) {
+        this.adminService      = adminService;
+        this.reloadService     = reloadService;
+        this.telemetryRegistry = telemetryRegistry;
     }
 
     public void start(int port, long intervalMs) throws IOException {
         oshi.SystemInfo oshi = new oshi.SystemInfo();
 
-        // Static host info — collected once at startup
         SystemInfoCollector infoCollector = new SystemInfoCollector(oshi);
         SystemInfo systemInfo = infoCollector.collect();
 
-        // Dynamic metric collectors (stateful — single instance each)
-        OsMetricsCollector  osCollector  = new OsMetricsCollector(oshi);
-        JvmMetricsCollector jvmCollector = new JvmMetricsCollector();
+        OsMetricsCollector      osCollector      = new OsMetricsCollector(oshi);
+        JvmMetricsCollector     jvmCollector     = new JvmMetricsCollector();
+        ChannelSnapshotCollector channelCollector = new ChannelSnapshotCollector(telemetryRegistry);
 
-        // Node ID from system property or fallback to hostname
         String nodeId = System.getProperty("node.id", systemInfo.getHostname());
 
-        // Broadcaster — schedules collection and fans out to all subscribers
-        broadcaster = new MetricsBroadcaster(osCollector, jvmCollector, intervalMs, nodeId);
+        broadcaster = new MetricsBroadcaster(osCollector, jvmCollector, channelCollector, intervalMs, nodeId);
         broadcaster.start();
 
-        // gRPC service implementation
         CoreServiceImpl coreService = new CoreServiceImpl(
                 systemInfo, broadcaster, adminService, reloadService);
 
-        // Build gRPC server (shaded Netty to avoid classpath conflict with se-core's Netty)
         server = NettyServerBuilder.forPort(port)
                 .addService(coreService)
-                .addService(ProtoReflectionService.newInstance())  // enables grpcurl discovery
+                .addService(ProtoReflectionService.newInstance())
                 .maxInboundMessageSize(1024 * 1024)
                 .build()
                 .start();

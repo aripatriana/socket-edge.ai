@@ -1,85 +1,92 @@
 package id.co.jalin.seconsole.engine;
 
+import com.socket.edge.grpc.MetricsBundle;
 import id.co.jalin.seconsole.engine.dto.ChannelSummary;
 import id.co.jalin.seconsole.engine.history.EngineChannelHistoryService;
 import id.co.jalin.seconsole.engine.model.ChannelCfg;
 import id.co.jalin.seconsole.engine.model.ChannelSnapshot;
+import id.co.jalin.seconsole.grpc.GrpcMetricsSubscriber;
+import jakarta.annotation.PostConstruct;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
-import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 
 import java.time.Instant;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicReference;
 
 /**
- * Poller for the engine's {@code /socket/snapshot/channels} endpoint —
- * replaces the pre-rewrite {@code EngineMetricsService} that called three
- * separate endpoints ({@code /socket/status, /socket/metrics, /socket/queues}).
+ * Channel snapshot cache — updated event-driven via {@link GrpcMetricsSubscriber.MetricsListener}.
  *
- * <p>Per-tick flow (cf. {@code snapshot_seconsole.png}):
+ * <p>Data flow:
  * <ol>
- *   <li>HTTP GET snapshot</li>
- *   <li>Merge with cached channel config → grouped {@link ChannelSummary} list</li>
- *   <li>Store result in the AtomicReference (hot read path for the UI)</li>
- *   <li>Persist raw snapshot to H2 via {@link EngineChannelHistoryService}</li>
+ *   <li>GrpcMetricsSubscriber.onNext() fires when se-core pushes a bundle.</li>
+ *   <li>onBundle() extracts bundle.channel, maps via GrpcChannelSnapshotMapper,
+ *       merges with cached config, and updates the cache immediately.</li>
+ *   <li>History write is dispatched async — converts proto to HTTP model
+ *       (p99 dropped) so the existing schema is unchanged.</li>
+ *   <li>Controllers read currentSnapshot() — zero-cost cache read.</li>
  * </ol>
- *
- * <p>Any exception preserves the last-good cache state and sets
- * {@code reachable=false} on the envelope — so the UI can surface "stale"
- * without flashing empty state on a transient engine blip.
  */
 @Service
 @ConditionalOnProperty(prefix = "seconsole.engine", name = "enabled", havingValue = "true", matchIfMissing = true)
-public class EngineChannelSnapshotService {
+public class EngineChannelSnapshotService implements GrpcMetricsSubscriber.MetricsListener {
 
     private static final Logger log = LoggerFactory.getLogger(EngineChannelSnapshotService.class);
 
-    private final EngineClient client;
+    private final GrpcMetricsSubscriber subscriber;
     private final EngineConfigService configService;
     private final EngineChannelHistoryService historyService;
 
     private final AtomicReference<Snapshot> snapshot = new AtomicReference<>(Snapshot.empty());
 
-    public EngineChannelSnapshotService(EngineClient client,
+    public EngineChannelSnapshotService(GrpcMetricsSubscriber subscriber,
                                         EngineConfigService configService,
                                         EngineChannelHistoryService historyService) {
-        this.client = client;
-        this.configService = configService;
+        this.subscriber     = subscriber;
+        this.configService  = configService;
         this.historyService = historyService;
     }
 
-    @Scheduled(fixedDelayString = "${seconsole.engine.channels.poll-interval-ms:2000}")
-    public void poll() {
+    @PostConstruct
+    public void init() {
+        subscriber.addListener(this);
+    }
+
+    @Override
+    public void onBundle(MetricsBundle bundle) {
+        if (!bundle.hasChannel()) return;
+
         try {
-            ChannelSnapshot raw = client.getChannelSnapshot();
+            com.socket.edge.grpc.ChannelSnapshot proto = bundle.getChannel();
             Map<String, ChannelCfg> configByName = configService.currentConfigByName();
-            List<ChannelSummary> merged = ChannelSnapshotMapper.toChannelList(raw, configByName);
+            List<ChannelSummary> channels = GrpcChannelSnapshotMapper.toChannelList(proto, configByName);
 
-            // Cache first — the UI's hot path should see fresh data even
-            // if the DB write below fails.
-            snapshot.set(new Snapshot(
-                    merged, raw,
-                    true, Instant.now().toEpochMilli(), null));
+            ChannelSnapshot raw = GrpcChannelSnapshotMapper.toHttpModel(proto);
+            snapshot.set(new Snapshot(channels, raw, true, Instant.now().toEpochMilli(), null));
 
-            historyService.record(raw);
+            CompletableFuture.runAsync(() -> historyService.record(raw));
         } catch (Exception ex) {
             Snapshot prev = snapshot.get();
-            snapshot.set(new Snapshot(
-                    prev.channels(), prev.raw(),
+            snapshot.set(new Snapshot(prev.channels(), prev.raw(),
                     false, Instant.now().toEpochMilli(), ex.getMessage()));
-            log.warn("Channel snapshot poll failed: {}", ex.getMessage());
+            log.warn("Channel snapshot processing failed: {}", ex.getMessage());
         }
     }
 
-    /** Latest cache entry for controllers. */
+    @Override
+    public void onDisconnect(String reason) {
+        Snapshot prev = snapshot.get();
+        snapshot.set(new Snapshot(prev.channels(), prev.raw(),
+                false, Instant.now().toEpochMilli(), reason));
+    }
+
     public Snapshot currentSnapshot() { return snapshot.get(); }
 
-    /** Find a single channel by name — O(N) over a small list, fine for N~20. */
     public ChannelSummary findChannel(String name) {
         if (name == null) return null;
         for (ChannelSummary c : snapshot.get().channels()) {
@@ -88,11 +95,6 @@ public class EngineChannelSnapshotService {
         return null;
     }
 
-    /**
-     * Cache envelope. Keeps both the grouped {@link ChannelSummary} list
-     * (for list/detail views) AND the raw snapshot (for the new
-     * {@code /api/channels/snapshot} endpoint, should we surface it).
-     */
     public record Snapshot(
             List<ChannelSummary> channels,
             ChannelSnapshot raw,

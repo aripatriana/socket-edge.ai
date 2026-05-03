@@ -126,7 +126,7 @@ public class SocketTelemetry {
         this.latency = Timer.builder("socket.latency")
                 .tags(tags)
                 .publishPercentileHistogram()
-                .publishPercentiles(0.90, 0.95)
+                .publishPercentiles(0.90, 0.95, 0.99)
                 .register(registry);
 
         meters.add(latency);
@@ -135,13 +135,13 @@ public class SocketTelemetry {
 
         this.pressureSummary = DistributionSummary.builder("socket.pressure.tps")
                 .tags(tags)
-                .publishPercentiles(0.90, 0.95)
+                .publishPercentiles(0.90, 0.95, 0.99)
                 .publishPercentileHistogram()
                 .register(registry);
 
         this.throughputSummary = DistributionSummary.builder("socket.throughput.tps")
                 .tags(tags)
-                .publishPercentiles(0.90, 0.95)
+                .publishPercentiles(0.90, 0.95, 0.99)
                 .publishPercentileHistogram()
                 .register(registry);
 
@@ -397,18 +397,21 @@ public class SocketTelemetry {
                 maxLatency.get(),
                 extract(latencySnap, 0.90),
                 extract(latencySnap, 0.95),
+                extract(latencySnap, 0.99),
 
                 pressureTps.get(),
                 minPressureTps.get() == Long.MAX_VALUE ? 0 : minPressureTps.get(),
                 maxPressureTps.get(),
                 extract(pressureSnap, 0.90),
                 extract(pressureSnap, 0.95),
+                extract(pressureSnap, 0.99),
 
                 throughputTps.get(),
                 minThroughputTps.get() == Long.MAX_VALUE ? 0 : minThroughputTps.get(),
                 maxThroughputTps.get(),
                 extract(throughputSnap, 0.90),
-                extract(throughputSnap, 0.95)
+                extract(throughputSnap, 0.95),
+                extract(throughputSnap, 0.99)
         );
     }
 

@@ -129,6 +129,10 @@ public class TelemetryRegistry {
                 .toList();
     }
 
+    public Collection<SocketTelemetry> getAllTelemetry() {
+        return byId.values();
+    }
+
     public List<Metrics> getAllMetrics() {
         return byId.values()
                 .stream()

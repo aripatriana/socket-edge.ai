@@ -1,0 +1,111 @@
+syntax = "proto3";
+
+package socket.edge;
+
+import "socket/edge/se_common.proto";
+
+option java_package        = "com.socket.edge.grpc";
+option java_multiple_files = true;
+
+// ─────────────────────────────────────────────────────────────
+// Channel / socket telemetry — collected by se-core via
+// TelemetryRegistry and streamed as part of MetricsBundle.
+//
+// StatSummary is a shared shape used for both latency (ns) and
+// TPS metrics. The unit is conveyed by the field name in the
+// parent message (latency_ns, pressure_tps, throughput_tps).
+// ─────────────────────────────────────────────────────────────
+
+
+// ── Shared statistical summary ────────────────────────────────
+// avg  = mean over collection window
+// min  = lifetime minimum
+// max  = lifetime maximum
+// p90/p95/p99 = percentile from Micrometer distribution summary
+
+message StatSummary {
+    int64 avg = 1;
+    int64 min = 2;
+    int64 max = 3;
+    int64 p90 = 4;
+    int64 p95 = 5;
+    int64 p99 = 6;
+}
+
+
+// ── Per-socket runtime state ──────────────────────────────────
+// state values: DOWN | STANDBY | LISTEN | WAIT | ACTIVE | ERROR
+
+message SocketRuntime {
+    string state           = 1;
+    string local_host      = 2;
+    string remote_host     = 3;
+    int32  active_channels = 4;
+    int64  start_time      = 5;  // epoch millis
+    int64  last_connect    = 6;  // epoch millis; 0 = never connected
+    int64  last_disconnect = 7;  // epoch millis; 0 = never disconnected
+}
+
+
+// ── Per-socket message queue counters ────────────────────────
+
+message SocketQueue {
+    int64 msg_in    = 1;  // cumulative inbound messages
+    int64 msg_out   = 2;  // cumulative outbound messages
+    int64 depth     = 3;  // current in-flight queue depth
+    int64 err_count = 4;  // cumulative error count
+    int64 last_err  = 5;  // epoch millis; 0 = no error yet
+    int64 last_msg  = 6;  // epoch millis; 0 = no message yet
+}
+
+
+// ── Per-socket performance metrics ───────────────────────────
+// latency_ns    — end-to-end processing latency in nanoseconds
+// pressure_tps  — inbound request rate (requests received/s)
+// throughput_tps — outbound response rate (responses sent/s)
+
+message SocketMetrics {
+    StatSummary latency_ns     = 1;
+    StatSummary pressure_tps   = 2;
+    StatSummary throughput_tps = 3;
+}
+
+
+// ── Full per-socket snapshot ──────────────────────────────────
+// hash_id  = composite key: hash(socketId + endpointId)
+// socket_id = logical socket identifier
+// type      = CLIENT | SERVER
+
+message SocketSnapshot {
+    string        hash_id   = 1;
+    string        socket_id = 2;
+    string        name      = 3;
+    string        type      = 4;
+    SocketRuntime runtime   = 5;
+    SocketQueue   queue     = 6;
+    SocketMetrics metrics   = 7;
+}
+
+
+// ── Aggregate across all sockets in this snapshot ────────────
+
+message ChannelAggregate {
+    int32 socket_count          = 1;
+    int32 sockets_up            = 2;  // state not DOWN and not ERROR
+    int32 sockets_down          = 3;  // state DOWN or ERROR
+    int32 total_active_channels = 4;  // sum of active Netty channels
+    int64 total_msg_in          = 5;
+    int64 total_msg_out         = 6;
+    int64 total_queue_depth     = 7;
+    int64 total_err_count       = 8;
+}
+
+
+// ── Top-level channel snapshot ────────────────────────────────
+// Streamed as MetricsBundle.channel at every collection interval.
+
+message ChannelSnapshot {
+    SnapshotHeader           header    = 1;
+    repeated SocketSnapshot  sockets   = 2;
+    ChannelAggregate         aggregate = 3;
+}

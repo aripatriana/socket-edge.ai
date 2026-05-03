@@ -1,5 +1,6 @@
 package com.socket.edge.grpc;
 
+import com.socket.edge.grpc.channel.ChannelSnapshotCollector;
 import com.socket.edge.grpc.jvm.JvmMetricsCollector;
 import com.socket.edge.grpc.os.OsMetricsCollector;
 import io.grpc.stub.StreamObserver;
@@ -25,6 +26,7 @@ public class MetricsBroadcaster {
 
     private final OsMetricsCollector              osCollector;
     private final JvmMetricsCollector             jvmCollector;
+    private final ChannelSnapshotCollector        channelCollector;
     private final long                            intervalMs;
     private final String                          nodeId;
     private final CopyOnWriteArrayList<StreamObserver<MetricsBundle>> subscribers
@@ -32,12 +34,15 @@ public class MetricsBroadcaster {
     private final AtomicLong                      frameSeq = new AtomicLong(0);
     private       ScheduledExecutorService        scheduler;
 
-    public MetricsBroadcaster(OsMetricsCollector osCollector, JvmMetricsCollector jvmCollector,
+    public MetricsBroadcaster(OsMetricsCollector osCollector,
+                               JvmMetricsCollector jvmCollector,
+                               ChannelSnapshotCollector channelCollector,
                                long intervalMs, String nodeId) {
-        this.osCollector  = osCollector;
-        this.jvmCollector = jvmCollector;
-        this.intervalMs   = intervalMs;
-        this.nodeId       = nodeId;
+        this.osCollector      = osCollector;
+        this.jvmCollector     = jvmCollector;
+        this.channelCollector = channelCollector;
+        this.intervalMs       = intervalMs;
+        this.nodeId           = nodeId;
     }
 
     public void start() {
@@ -59,7 +64,6 @@ public class MetricsBroadcaster {
                 Thread.currentThread().interrupt();
             }
         }
-        // Complete all active streams gracefully
         for (StreamObserver<MetricsBundle> obs : subscribers) {
             try { obs.onCompleted(); } catch (Exception ignored) {}
         }
@@ -67,13 +71,11 @@ public class MetricsBroadcaster {
         log.info("MetricsBroadcaster stopped");
     }
 
-    /** Called by CoreServiceImpl when a new client subscribes. */
     public void addSubscriber(StreamObserver<MetricsBundle> observer) {
         subscribers.add(observer);
         log.info("Metrics subscriber added, total={}", subscribers.size());
     }
 
-    /** Remove a subscriber (called on stream error or completion). */
     public void removeSubscriber(StreamObserver<MetricsBundle> observer) {
         subscribers.remove(observer);
         log.info("Metrics subscriber removed, total={}", subscribers.size());
@@ -86,12 +88,15 @@ public class MetricsBroadcaster {
 
         try {
             String snapshotId = String.format("%016X", frameSeq.incrementAndGet());
-            OsSnapshot  os  = osCollector.collect(snapshotId);
-            JvmSnapshot jvm = jvmCollector.collect(snapshotId);
+
+            OsSnapshot      os      = osCollector.collect(snapshotId);
+            JvmSnapshot     jvm     = jvmCollector.collect(snapshotId);
+            ChannelSnapshot channel = channelCollector.collect(snapshotId);
 
             MetricsBundle bundle = MetricsBundle.newBuilder()
                     .setOs(os)
                     .setJvm(jvm)
+                    .setChannel(channel)
                     .setNodeId(nodeId)
                     .build();
 
