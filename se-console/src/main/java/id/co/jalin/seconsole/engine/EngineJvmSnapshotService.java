@@ -6,36 +6,31 @@ import id.co.jalin.seconsole.dto.response.ThreadListDto;
 import id.co.jalin.seconsole.engine.history.EngineJvmHistoryService;
 import id.co.jalin.seconsole.grpc.GrpcMetricsSubscriber;
 import id.co.jalin.seconsole.grpc.JvmSnapshotMapper;
+import jakarta.annotation.PostConstruct;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
-import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 
 import java.time.Instant;
 import java.util.Collections;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicReference;
 
 /**
- * Polls the gRPC MetricsBundle from se-core and exposes it as JvmMetricsDto.
+ * JVM metrics cache — updated event-driven via {@link GrpcMetricsSubscriber.MetricsListener}.
  *
  * <p>Data flow:
  * <ol>
- *   <li>GrpcMetricsSubscriber maintains the latest MetricsBundle from the
- *       se-core stream (reconnects automatically on interruption).</li>
- *   <li>poll() reads the bundle each tick, maps it via JvmSnapshotMapper,
- *       and stores the result in an AtomicReference cache.</li>
- *   <li>Controllers read current() — a pure cache read, no gRPC call per
- *       request.</li>
+ *   <li>GrpcMetricsSubscriber.onNext() fires when se-core pushes a bundle.</li>
+ *   <li>onBundle() maps immediately via JvmSnapshotMapper and updates the cache.</li>
+ *   <li>History write is dispatched async so the gRPC callback thread is not blocked.</li>
+ *   <li>Controllers read current() — zero-cost cache read, no syscalls.</li>
  * </ol>
- *
- * <p>If the gRPC stream has not yet delivered a bundle (se-core not reachable),
- * the cache entry is marked reachable=false so the UI can show "connecting…"
- * rather than an empty state.
  */
 @Service
 @ConditionalOnProperty(prefix = "seconsole.engine", name = "enabled", havingValue = "true", matchIfMissing = true)
-public class EngineJvmSnapshotService {
+public class EngineJvmSnapshotService implements GrpcMetricsSubscriber.MetricsListener {
 
     private static final Logger log = LoggerFactory.getLogger(EngineJvmSnapshotService.class);
 
@@ -53,24 +48,31 @@ public class EngineJvmSnapshotService {
         this.historyService = historyService;
     }
 
-    @Scheduled(fixedDelayString = "${seconsole.engine.jvm.poll-interval-ms:2000}")
-    public void poll() {
+    @PostConstruct
+    public void init() {
+        subscriber.addListener(this);
+    }
+
+    @Override
+    public void onBundle(MetricsBundle bundle) {
         try {
-            MetricsBundle bundle = subscriber.getLatestBundle();
-            if (bundle == null || !bundle.hasJvm()) {
-                CacheEntry prev = cache.get();
-                cache.set(new CacheEntry(prev.metrics(), false,
-                        Instant.now().toEpochMilli(), "Waiting for gRPC stream"));
+            if (!bundle.hasJvm()) {
+                markUnreachable("No JVM snapshot in bundle");
                 return;
             }
-            JvmMetricsDto metrics = mapper.toDto(bundle.getJvm());
+            com.socket.edge.grpc.JvmSnapshot jvm = bundle.getJvm();
+            JvmMetricsDto metrics = mapper.toDto(jvm);
             cache.set(new CacheEntry(metrics, true, Instant.now().toEpochMilli(), null));
-            historyService.record(bundle.getJvm());
+            CompletableFuture.runAsync(() -> historyService.record(jvm));
         } catch (Exception ex) {
-            CacheEntry prev = cache.get();
-            cache.set(new CacheEntry(prev.metrics(), false, Instant.now().toEpochMilli(), ex.getMessage()));
-            log.warn("Engine JVM poll from gRPC failed: {}", ex.getMessage());
+            markUnreachable(ex.getMessage());
+            log.warn("Engine JVM mapping failed: {}", ex.getMessage());
         }
+    }
+
+    @Override
+    public void onDisconnect(String reason) {
+        markUnreachable(reason);
     }
 
     /** Current cached snapshot for dashboard consumption. */
@@ -88,6 +90,11 @@ public class EngineJvmSnapshotService {
         }
         JvmMetricsDto.ThreadMetrics t = e.metrics().threads();
         return new ThreadListDto(e.metrics().timestamp(), t.liveCount(), Collections.emptyList());
+    }
+
+    private void markUnreachable(String reason) {
+        CacheEntry prev = cache.get();
+        cache.set(new CacheEntry(prev.metrics(), false, Instant.now().toEpochMilli(), reason));
     }
 
     public record CacheEntry(
