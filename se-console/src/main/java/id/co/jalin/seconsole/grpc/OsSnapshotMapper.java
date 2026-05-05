@@ -62,8 +62,8 @@ public class OsSnapshotMapper {
         Double l15 = la.getAvailable() && la.getAvg15M() >= 0 ? (double) la.getAvg15M() : null;
 
         return new CpuMetrics(
-                nullIfZero(os.getProcess().getProcessCpuPct()),
-                nullIfZero(cpu.getSystemPct()),
+                round(os.getProcess().getProcessCpuPct()),
+                round(cpu.getSystemPct()),
                 l1, l5, l15,
                 si != null ? si.getCpuLogical()  : 0,
                 si != null ? si.getCpuPhysical() : 0,
@@ -202,10 +202,6 @@ public class OsSnapshotMapper {
     }
 
     // ── Helpers ───────────────────────────────────────────────────────────────
-
-    private static Double nullIfZero(double v) {
-        return v == 0.0 ? null : round(v);
-    }
 
     private static String emptyToNull(String s) {
         return (s == null || s.isEmpty()) ? null : s;

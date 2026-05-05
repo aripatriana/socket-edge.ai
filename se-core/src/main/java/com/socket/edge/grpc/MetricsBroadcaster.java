@@ -51,7 +51,7 @@ public class MetricsBroadcaster {
             t.setDaemon(true);
             return t;
         });
-        scheduler.scheduleAtFixedRate(this::broadcast, 0, intervalMs, TimeUnit.MILLISECONDS);
+        scheduler.scheduleAtFixedRate(this::broadcast, intervalMs, intervalMs, TimeUnit.MILLISECONDS);
         log.info("MetricsBroadcaster started: interval={}ms node={}", intervalMs, nodeId);
     }
 
