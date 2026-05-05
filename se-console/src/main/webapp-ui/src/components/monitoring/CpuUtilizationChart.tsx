@@ -78,7 +78,7 @@ export function CpuUtilizationChart({
         </div>
       </div>
 
-      <div style={{ height: 200 }}>
+      <div style={{ height: 220 }}>
         {data.length < 2 ? (
           <EmptyMessage>
             {isHistory ? 'No samples in selected range' : 'Collecting samples…'}
@@ -93,7 +93,24 @@ export function CpuUtilizationChart({
                 </linearGradient>
               </defs>
               <CartesianGrid stroke="hsl(var(--border))" vertical={false} strokeDasharray="2 4" />
-              <XAxis dataKey="t" hide />
+              <XAxis
+                dataKey="t"
+                type="number"
+                domain={['dataMin', 'dataMax']}
+                scale="time"
+                tickFormatter={(t: number) =>
+                  new Date(t).toLocaleTimeString([], {
+                    hour: '2-digit',
+                    minute: '2-digit',
+                    second: isHistory ? undefined : '2-digit',
+                  })
+                }
+                tick={{ fontSize: 10, fill: 'hsl(var(--muted-foreground))' }}
+                tickCount={5}
+                axisLine={false}
+                tickLine={false}
+                minTickGap={40}
+              />
               <YAxis
                 domain={[0, 100]}
                 tick={{ fontSize: 10, fill: 'hsl(var(--muted-foreground))' }}
@@ -108,7 +125,9 @@ export function CpuUtilizationChart({
                   fontSize: 11,
                 }}
                 labelFormatter={(t) =>
-                  isHistory ? new Date(Number(t)).toLocaleString() : ''
+                  isHistory
+                    ? new Date(Number(t)).toLocaleString()
+                    : new Date(Number(t)).toLocaleTimeString()
                 }
                 formatter={(value, name) => [
                   `${Number(value).toFixed(1)}%`,

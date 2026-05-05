@@ -17,7 +17,6 @@ export function useMetricHistory(
   trigger?: number | string | null
 ) {
   const [history, setHistory] = useState<{ t: number; v: number }[]>([]);
-  const startRef = useRef<number>(Date.now());
   const lastTriggerRef = useRef<number | string | null | undefined>(undefined);
 
   useEffect(() => {
@@ -26,7 +25,7 @@ export function useMetricHistory(
       lastTriggerRef.current = trigger;
     }
     if (value == null || Number.isNaN(value)) return;
-    const point = { t: Date.now() - startRef.current, v: value };
+    const point = { t: Date.now(), v: value };
     setHistory((prev) => {
       const next = [...prev, point];
       if (next.length > maxPoints) next.shift();
