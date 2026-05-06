@@ -1,3 +1,4 @@
+import { useMemo } from 'react';
 import { useSystemMetrics } from '../../hooks/useSystemMetrics';
 import { useSystemHistory } from '../../hooks/useSystemHistory';
 import { CpuUtilizationChart } from '../../components/monitoring/CpuUtilizationChart';
@@ -33,6 +34,21 @@ export function SystemPage() {
   // which are point-in-time only.
   const live = useSystemMetrics();
   const history = useSystemHistory(from, to);
+
+  // Live seed: fetch 5 menit terakhir dari DB saat pertama kali masuk live
+  // mode, sehingga grafik langsung punya data tanpa perlu tunggu buffer live
+  // terisi. Dihitung ulang setiap kali isLive berubah menjadi true.
+  const seedFrom = useMemo(
+    () => (isLive ? new Date(Date.now() - 5 * 60_000).toISOString() : null),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [isLive]
+  );
+  const seedTo = useMemo(
+    () => (isLive ? new Date().toISOString() : null),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [isLive]
+  );
+  const liveSeed = useSystemHistory(seedFrom, seedTo);
 
   const metrics = live.data;
 
@@ -75,6 +91,8 @@ export function SystemPage() {
       <CpuUtilizationChart
         metrics={metrics}
         historyRows={isLive ? undefined : history.data}
+        seedRows={isLive ? liveSeed.data : undefined}
+        preset={preset}
       />
 
       <div className="grid grid-cols-2 gap-3">

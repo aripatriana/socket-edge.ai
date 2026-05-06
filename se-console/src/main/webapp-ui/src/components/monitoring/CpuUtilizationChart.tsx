@@ -1,3 +1,4 @@
+import { useMemo } from 'react';
 import { Area, AreaChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import { Card } from '../dashboard/Card';
 import type { SystemMetrics, SystemSnapshotRow } from '../../api/metrics.types';
@@ -17,9 +18,13 @@ import { cpuSeriesFromRows } from '../../lib/snapshotAdapters';
 export function CpuUtilizationChart({
   metrics,
   historyRows,
+  seedRows,
+  preset = 'live',
 }: {
   metrics: SystemMetrics;
   historyRows?: SystemSnapshotRow[];
+  seedRows?: SystemSnapshotRow[];
+  preset?: 'live' | '1h' | '6h' | '24h';
 }) {
   const isHistory = !!historyRows;
 
@@ -34,14 +39,30 @@ export function CpuUtilizationChart({
         process: p.primary,
         system: p.secondary,
       }))
-    : sysHistory.map((p, i) => ({
-        t: p.t,
-        system: p.v,
-        process: procHistory[i]?.v ?? null,
-      }));
+    : buildLiveSeries(seedRows, sysHistory, procHistory);
 
   const hasProcess = data.some((d) => d.process != null);
   const stats = computeStats(data.map((d) => d.system).filter((v): v is number => v != null));
+
+  // Interval tick ditentukan dari preset, bukan dari range data aktual,
+  // agar tetap konsisten meski DB belum terisi penuh.
+  const xTicks = useMemo(() => {
+    if (data.length < 2) return [];
+    const intervalMs =
+      preset === '24h' ? 60 * 60_000 :
+      preset === '6h'  ? 30 * 60_000 :
+      preset === '1h'  ? 10 * 60_000 :
+                             60_000;
+    const start = data[0].t;
+    const end   = data[data.length - 1].t;
+    const first = Math.ceil(start / intervalMs) * intervalMs;
+    const result: number[] = [];
+    for (let t = first; t <= end; t += intervalMs) result.push(t);
+    return result;
+  }, [data, preset]);
+
+  const xTickFormatter = (t: number) =>
+    new Date(t).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 
   return (
     <Card className="px-4 py-3.5">
@@ -98,18 +119,11 @@ export function CpuUtilizationChart({
                 type="number"
                 domain={['dataMin', 'dataMax']}
                 scale="time"
-                tickFormatter={(t: number) =>
-                  new Date(t).toLocaleTimeString([], {
-                    hour: '2-digit',
-                    minute: '2-digit',
-                    second: isHistory ? undefined : '2-digit',
-                  })
-                }
+                ticks={xTicks}
+                tickFormatter={xTickFormatter}
                 tick={{ fontSize: 10, fill: 'hsl(var(--muted-foreground))' }}
-                tickCount={5}
                 axisLine={false}
                 tickLine={false}
-                minTickGap={40}
               />
               <YAxis
                 domain={[0, 100]}
@@ -218,6 +232,38 @@ function EmptyMessage({ children }: { children: string }) {
       {children}
     </div>
   );
+}
+
+/**
+ * Builds the live data series by merging DB seed rows (fetched on mount)
+ * with the rolling live buffer. Seed rows provide immediate historical
+ * context; live buffer points newer than the last seed row are appended
+ * on top. Combined result is capped at 120 points.
+ */
+function buildLiveSeries(
+  seedRows: SystemSnapshotRow[] | undefined,
+  sysHistory: { t: number; v: number }[],
+  procHistory: { t: number; v: number }[]
+): { t: number; system: number | null; process: number | null }[] {
+  const seedPoints = seedRows
+    ? cpuSeriesFromRows(seedRows).map((p) => ({
+        t: p.t,
+        system: p.secondary,
+        process: p.primary,
+      }))
+    : [];
+
+  const lastSeedT = seedPoints.length > 0 ? seedPoints[seedPoints.length - 1].t : 0;
+
+  const filteredSys = sysHistory.filter((p) => p.t > lastSeedT);
+  const filteredProc = procHistory.filter((p) => p.t > lastSeedT);
+  const livePoints = filteredSys.map((p, i) => ({
+    t: p.t,
+    system: p.v as number | null,
+    process: filteredProc[i]?.v ?? null,
+  }));
+
+  return [...seedPoints, ...livePoints].slice(-120);
 }
 
 function computeStats(values: number[]): { min: number; avg: number; max: number } | null {
