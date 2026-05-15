@@ -2,7 +2,7 @@ package com.socket.edge.model;
 
 public record Metrics(
         String bindingId,
-        String id,
+        String socketId,
         String name,
         String type,
 

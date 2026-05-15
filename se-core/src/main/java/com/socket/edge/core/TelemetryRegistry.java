@@ -33,6 +33,9 @@ import java.util.concurrent.ConcurrentHashMap;
  *
  * <p>Thread-safe: both maps are {@link ConcurrentHashMap}; the name-index
  * set is created with {@link ConcurrentHashMap#newKeySet()}.
+ *
+ *  imp@author Ari Patriana
+ *  @since 1.0.0
  */
 public class TelemetryRegistry {
 
@@ -164,27 +167,27 @@ public class TelemetryRegistry {
         return null;
     }
 
-    /** Returns metrics for all bindings under the given channel name, sorted by bindingId. */
+    /** Returns metrics for all bindings under the given channel name, sorted by socketId. */
     public List<Metrics> getMetricsByName(String name) {
         return getByName(name).stream()
                 .map(SocketTelemetry::getMetrics)
-                .sorted(Comparator.comparing(Metrics::id))
+                .sorted(Comparator.comparing(Metrics::socketId))
                 .toList();
     }
 
-    /** Returns runtime states for all bindings under the given channel name, sorted by bindingId. */
+    /** Returns runtime states for all bindings under the given channel name, sorted by socketId. */
     public List<RuntimeState> getRuntimeStateByName(String name) {
         return getByName(name).stream()
                 .map(SocketTelemetry::getRuntimeState)
-                .sorted(Comparator.comparing(RuntimeState::id))
+                .sorted(Comparator.comparing(RuntimeState::socketId))
                 .toList();
     }
 
-    /** Returns queue snapshots for all bindings under the given channel name, sorted by bindingId. */
+    /** Returns queue snapshots for all bindings under the given channel name, sorted by socketId. */
     public List<Queue> getQueueByName(String name) {
         return getByName(name).stream()
                 .map(SocketTelemetry::getQueue)
-                .sorted(Comparator.comparing(Queue::id))
+                .sorted(Comparator.comparing(Queue::socketId))
                 .toList();
     }
 
@@ -193,30 +196,30 @@ public class TelemetryRegistry {
         return byId.values();
     }
 
-    /** Returns metrics for every registered binding, sorted by bindingId. */
+    /** Returns metrics for every registered binding, sorted by socketId. */
     public List<Metrics> getAllMetrics() {
         return byId.values()
                 .stream()
                 .map(SocketTelemetry::getMetrics)
-                .sorted(Comparator.comparing(Metrics::id))
+                .sorted(Comparator.comparing(Metrics::socketId))
                 .toList();
     }
 
-    /** Returns runtime states for every registered binding, sorted by bindingId. */
+    /** Returns runtime states for every registered binding, sorted by socketId. */
     public List<RuntimeState> getAllRuntimeState() {
         return byId.values()
                 .stream()
                 .map(SocketTelemetry::getRuntimeState)
-                .sorted(Comparator.comparing(RuntimeState::id))
+                .sorted(Comparator.comparing(RuntimeState::socketId))
                 .toList();
     }
 
-    /** Returns queue snapshots for every registered binding, sorted by bindingId. */
+    /** Returns queue snapshots for every registered binding, sorted by socketId. */
     public List<Queue> getAllQueue() {
         return byId.values()
                 .stream()
                 .map(SocketTelemetry::getQueue)
-                .sorted(Comparator.comparing(Queue::id))
+                .sorted(Comparator.comparing(Queue::socketId))
                 .toList();
     }
 }

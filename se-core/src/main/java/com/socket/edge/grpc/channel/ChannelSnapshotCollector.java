@@ -51,7 +51,7 @@ public class ChannelSnapshotCollector {
 
             socketSnapshots.add(SocketSnapshot.newBuilder()
                     .setBindingId(m.bindingId())
-                    .setSocketId(m.id())
+                    .setSocketId(m.socketId())
                     .setName(m.name())
                     .setType(m.type())
                     .setRuntime(buildRuntime(rs))
