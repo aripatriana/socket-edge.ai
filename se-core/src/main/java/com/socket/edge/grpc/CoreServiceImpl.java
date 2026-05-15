@@ -1,5 +1,6 @@
 package com.socket.edge.grpc;
 
+import com.socket.edge.core.AiWeightRegistry;
 import com.socket.edge.http.service.AdminHttpService;
 import com.socket.edge.http.service.ReloadCfgService;
 import io.grpc.Status;

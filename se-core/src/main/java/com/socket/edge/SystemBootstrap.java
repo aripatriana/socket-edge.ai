@@ -7,6 +7,7 @@ import com.hazelcast.core.HazelcastInstance;
 import com.socket.edge.constant.RolePreference;
 import com.socket.edge.constant.ServerMode;
 import com.socket.edge.core.*;
+import com.socket.edge.core.AiWeightRegistry;
 import com.socket.edge.core.cache.CorrelationStore;
 import com.socket.edge.core.cache.CorrelationStoreFactory;
 import com.socket.edge.core.cluster.ClusterListener;
@@ -77,6 +78,7 @@ public class SystemBootstrap {
     private CorrelationStore correlationStore;
     private NettyHttpServer httpServer;
     private GrpcServer grpcServer;
+    private AiWeightRegistry aiWeightRegistry;
     private AdminHttpService adminHttpService;
     private ReloadCfgService reloadCfgService;
     private MetadataHolder metadataHolder;
@@ -191,8 +193,9 @@ public class SystemBootstrap {
                 messageContextProcess, coordinator, pciMaskUtil);
 
         // 11. Transport
+        aiWeightRegistry = new AiWeightRegistry();
         TransportProvider transportProvider = new TransportProvider();
-        transportRegister = new TransportRegister(transportProvider);
+        transportRegister = new TransportRegister(transportProvider, aiWeightRegistry);
 
         // 12. SocketManager
         socketManager = new SocketManager(socketFactory, transportRegister, groupRegistry);
@@ -301,7 +304,7 @@ public class SystemBootstrap {
     private void handleGrpcServer(TelemetryRegistry telemetryRegistry) throws Exception {
         int  port       = Integer.parseInt(System.getProperty("grpc.port", "9090"));
         long intervalMs = Long.parseLong(System.getProperty("grpc.metrics.interval.ms", "2000"));
-        grpcServer = new GrpcServer(adminHttpService, reloadCfgService, telemetryRegistry);
+        grpcServer = new GrpcServer(adminHttpService, reloadCfgService, telemetryRegistry, this.aiWeightRegistry);
         grpcServer.start(port, intervalMs);
     }
 

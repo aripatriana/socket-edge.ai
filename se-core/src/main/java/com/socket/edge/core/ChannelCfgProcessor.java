@@ -233,7 +233,7 @@ public class ChannelCfgProcessor {
                 /* strategy validation */
                 String strategy = channel.client().strategy();
                 if (strategy != null &&
-                        !Set.of("roundrobin", "least", "hash")
+                        !Set.of("roundrobin", "least", "hash", "adaptive")
                                 .contains(strategy.toLowerCase())) {
                     throw new IllegalStateException(
                             "Unknown client strategy in channel "

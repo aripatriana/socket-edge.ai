@@ -1,5 +1,6 @@
 package com.socket.edge.grpc;
 
+import com.socket.edge.core.AiWeightRegistry;
 import com.socket.edge.core.TelemetryRegistry;
 import com.socket.edge.grpc.channel.ChannelSnapshotCollector;
 import com.socket.edge.grpc.jvm.JvmMetricsCollector;
@@ -37,16 +38,19 @@ public class GrpcServer {
     private final AdminHttpService  adminService;
     private final ReloadCfgService  reloadService;
     private final TelemetryRegistry telemetryRegistry;
+    private final AiWeightRegistry  aiWeightRegistry;
 
     private Server             server;
     private MetricsBroadcaster broadcaster;
 
     public GrpcServer(AdminHttpService adminService,
                       ReloadCfgService reloadService,
-                      TelemetryRegistry telemetryRegistry) {
+                      TelemetryRegistry telemetryRegistry,
+                      AiWeightRegistry aiWeightRegistry) {
         this.adminService      = adminService;
         this.reloadService     = reloadService;
         this.telemetryRegistry = telemetryRegistry;
+        this.aiWeightRegistry  = aiWeightRegistry;
     }
 
     public void start(int port, long intervalMs) throws IOException {
@@ -63,8 +67,6 @@ public class GrpcServer {
 
         broadcaster = new MetricsBroadcaster(osCollector, jvmCollector, channelCollector, intervalMs, nodeId);
         broadcaster.start();
-
-        AiWeightRegistry aiWeightRegistry = new AiWeightRegistry();
 
         CoreServiceImpl coreService = new CoreServiceImpl(
                 systemInfo, broadcaster, adminService, reloadService, aiWeightRegistry);

@@ -4,6 +4,7 @@ import com.socket.edge.core.LoadAware;
 import com.socket.edge.core.SocketTelemetry;
 import com.socket.edge.core.strategy.WeightedCandidate;
 import com.socket.edge.model.SocketEndpoint;
+import com.socket.edge.utils.CommonUtil;
 import io.netty.buffer.Unpooled;
 import io.netty.channel.Channel;
 import io.netty.channel.ChannelFuture;
@@ -163,6 +164,14 @@ public class SocketChannel implements WeightedCandidate, LoadAware {
     @Override
     public int getPriority() {
         return socketEndpoint.getPriority();
+    }
+
+    /**
+     * Returns the hash_id that identifies this socket channel in {@code AiWeightRegistry}.
+     * Computed identically to {@code TelemetryRegistry}: CRC32(socketId|host:port).
+     */
+    public String getHashId() {
+        return CommonUtil.hashId(socketId, socketEndpoint.id().id());
     }
 
     public void onMessage() {
