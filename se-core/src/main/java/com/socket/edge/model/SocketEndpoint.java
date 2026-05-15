@@ -31,6 +31,10 @@ public record SocketEndpoint(
         return EndpointKey.from(this);
     }
 
+    public String bindingId(String socketId) {
+        return CommonUtil.bindingId(socketId, id().id());
+    }
+
     public SocketEndpointDiff diffWith(SocketEndpoint newOne) {
         SocketEndpoint oldOne = this;
         Map<SocketEndpointField, FieldDiff> changes = new LinkedHashMap<>();
