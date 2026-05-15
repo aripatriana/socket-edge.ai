@@ -60,8 +60,8 @@ public final class TransportProvider {
      * Registers or replaces a transport for the given key.
      *
      * <p>
-     * If a transport already exists for the same key, it will be overwritten.
-     * Lifecycle cleanup of the replaced transport is the caller's responsibility.
+     * If a transport already exists for the same key, it is shut down
+     * before being replaced to prevent resource leaks.
      * </p>
      *
      * @param key unique transport key
@@ -72,7 +72,10 @@ public final class TransportProvider {
         Objects.requireNonNull(key, "key must not be null");
         Objects.requireNonNull(transport, "transport must not be null");
 
-        transports.put(key, transport);
+        Transport old = transports.put(key, transport);
+        if (old != null) {
+            old.shutdown();
+        }
     }
 
     /**
@@ -118,12 +121,25 @@ public final class TransportProvider {
      * Shuts down all registered transports and clears the registry.
      *
      * <p>
+     * Each transport is shut down individually. If a shutdown throws,
+     * the exception is logged and the remaining transports are still shut down.
+     * </p>
+     *
+     * <p>
      * This method should be called during application shutdown
      * to ensure all underlying resources are released properly.
      * </p>
      */
     public void destroy() {
-        transports.values().forEach(Transport::shutdown);
+        transports.forEach((key, transport) -> {
+            try {
+                transport.shutdown();
+            } catch (Exception e) {
+                // log and continue — all transports must be attempted
+                org.slf4j.LoggerFactory.getLogger(TransportProvider.class)
+                        .error("Error shutting down transport key={}", key, e);
+            }
+        });
         transports.clear();
     }
 
@@ -149,10 +165,11 @@ public final class TransportProvider {
         Transport transport =
                 transports.get(outboundType.name() + "|" + channelCfg.name());
 
-        Objects.requireNonNull(
-                transport,
-                "No transport for channelCfg " + channelCfg
-        );
+        if (transport == null) {
+            throw new IllegalStateException(
+                    "No transport for channelCfg=" + channelCfg + " outboundType=" + outboundType
+            );
+        }
         return transport;
     }
 }

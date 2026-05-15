@@ -89,7 +89,7 @@ public class TransportRegister {
 
         String key = key(socket.getType(), cfg.name());
         SelectionStrategy<SocketChannel> strategy =
-                SelectionFactory.create(cfg.client().strategy(), cfg.name(), aiWeightRegistry, null);
+                SelectionFactory.create(cfg.server().strategy(), cfg.name(), aiWeightRegistry, null);
 
         boolean registered = transportProvider.registerIfAbsent(
                 key,

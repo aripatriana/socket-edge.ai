@@ -70,9 +70,9 @@ public final class ServerTransport implements Transport {
     @Override
     public void send(MessageContext ctx) {
         int maxRetry = 3;
-        long version = socket.channelPool().getVersion().get();
 
         for (int attempt = 1; attempt <= maxRetry; attempt++) {
+            long version = socket.channelPool().getVersion().get();
             List<SocketChannel> availables = socket.channelPool().availableChannels();
 
             if (availables.isEmpty()) {

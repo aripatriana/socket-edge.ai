@@ -108,13 +108,14 @@ public final class ClientTransport implements Transport {
     @Override
     public void send(MessageContext ctx) {
         int maxRetry = 3;
-        long version = sockets.stream()
-                .map(AbstractSocket::channelPool)
-                .filter(Objects::nonNull)
-                .mapToLong(p -> p.getVersion().get())
-                .sum();
 
         for (int attempt = 1; attempt <= maxRetry; attempt++) {
+            long version = sockets.stream()
+                    .map(AbstractSocket::channelPool)
+                    .filter(Objects::nonNull)
+                    .mapToLong(p -> p.getVersion().get())
+                    .sum();
+
             List<SocketChannel> availables = sockets.stream()
                     .map(AbstractSocket::channelPool)
                     .filter(Objects::nonNull)
