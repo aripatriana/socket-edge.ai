@@ -32,7 +32,7 @@ public class SocketTelemetry {
 
     private static final long TPS_WINDOW_MS = 1000;
 
-    private final String hashId;
+    private final String bindingId;
     private final String id;
     private final String name;
     private final String type;
@@ -82,19 +82,19 @@ public class SocketTelemetry {
     private final List<Meter> meters = new CopyOnWriteArrayList<>();
     private final AtomicBoolean disposed = new AtomicBoolean(false);
 
-    public SocketTelemetry(String hashId, MeterRegistry registry, AbstractSocket socket, SocketEndpoint se) {
+    public SocketTelemetry(String bindingId, MeterRegistry registry, AbstractSocket socket, SocketEndpoint se) {
 
         this.registry = registry;
         this.socket = socket;
         this.se = se;
 
-        this.hashId = hashId;
+        this.bindingId = bindingId;
         this.id = socket.getId();
         this.name = socket.getName();
         this.type = socket.getType().name();
 
         Tags tags = Tags.of(
-                "id", hashId,
+                "id", bindingId,
                 "socketId", id
         );
 
@@ -352,7 +352,7 @@ public class SocketTelemetry {
             state = socket.getState().name();
         }
 
-        return new RuntimeState(hashId,
+        return new RuntimeState(bindingId,
                 id,
                 name,
                 type,
@@ -367,7 +367,7 @@ public class SocketTelemetry {
     }
 
     public Queue getQueue() {
-        return new Queue(hashId,
+        return new Queue(bindingId,
                 id,
                 name,
                 type,
@@ -387,7 +387,7 @@ public class SocketTelemetry {
         HistogramSnapshot pressureSnap = pressureSummary.takeSnapshot();
         HistogramSnapshot throughputSnap = throughputSummary.takeSnapshot();
 
-        return new Metrics(hashId,
+        return new Metrics(bindingId,
                 id,
                 name,
                 type,

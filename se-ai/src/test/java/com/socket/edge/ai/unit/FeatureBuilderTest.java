@@ -76,7 +76,7 @@ class FeatureBuilderTest {
     }
 
     @Test
-    @DisplayName("endpoints sorted by hash_id → feature order is stable across calls")
+    @DisplayName("endpoints sorted by binding_id → feature order is stable across calls")
     void stableFeatureOrder() {
         // ep "zzz" and "aaa" in different order
         List<SocketSnapshot> order1 = List.of(ep("zzz", 1000, 50, 30), ep("aaa", 9000, 100, 80));
@@ -84,9 +84,9 @@ class FeatureBuilderTest {
 
         // Sort both as the engine does, then build
         List<SocketSnapshot> sorted1 = order1.stream()
-                .sorted(java.util.Comparator.comparing(SocketSnapshot::getHashId)).toList();
+                .sorted(java.util.Comparator.comparing(SocketSnapshot::getBindingId)).toList();
         List<SocketSnapshot> sorted2 = order2.stream()
-                .sorted(java.util.Comparator.comparing(SocketSnapshot::getHashId)).toList();
+                .sorted(java.util.Comparator.comparing(SocketSnapshot::getBindingId)).toList();
 
         double[] x1 = builder.build("stable", sorted1);
 
@@ -98,13 +98,13 @@ class FeatureBuilderTest {
 
     // ── Helper ────────────────────────────────────────────────────────────────
 
-    private static SocketSnapshot ep(String hashId, long latAvg, long thrAvg, long presAvg) {
+    private static SocketSnapshot ep(String bindingId, long latAvg, long thrAvg, long presAvg) {
         long latMin = (long)(latAvg * 0.5), latMax = latAvg * 2, latP90 = (long)(latAvg * 1.4), latP95 = (long)(latAvg * 1.6);
         long thrMin = (long)(thrAvg * 0.5), thrMax = thrAvg * 2, thrP90 = (long)(thrAvg * 1.2), thrP95 = (long)(thrAvg * 1.3);
         long prMin  = (long)(presAvg* 0.5), prMax  = presAvg* 2, prP90  = (long)(presAvg* 1.2), prP95  = (long)(presAvg* 1.3);
 
         return SocketSnapshot.newBuilder()
-                .setHashId(hashId)
+                .setBindingId(bindingId)
                 .setType("CLIENT")
                 .setName("ch")
                 .setRuntime(SocketRuntime.newBuilder().setState("ACTIVE").build())

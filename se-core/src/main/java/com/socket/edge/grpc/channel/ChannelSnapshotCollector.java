@@ -50,7 +50,7 @@ public class ChannelSnapshotCollector {
             totalErrCount       += q.errCnt();
 
             socketSnapshots.add(SocketSnapshot.newBuilder()
-                    .setHashId(m.hashId())
+                    .setBindingId(m.bindingId())
                     .setSocketId(m.id())
                     .setName(m.name())
                     .setType(m.type())

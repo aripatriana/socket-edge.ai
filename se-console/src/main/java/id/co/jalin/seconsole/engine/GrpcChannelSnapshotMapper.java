@@ -82,7 +82,7 @@ public final class GrpcChannelSnapshotMapper {
 
     private static SocketSummary toSocketSummary(SocketSnapshot s) {
         return new SocketSummary(
-                s.getHashId(), s.getSocketId(), s.getName(), s.getType(),
+                s.getBindingId(), s.getSocketId(), s.getName(), s.getType(),
                 toRuntime(s.getRuntime()),
                 toQueue(s.getQueue()),
                 toMetrics(s.getMetrics())
@@ -133,7 +133,7 @@ public final class GrpcChannelSnapshotMapper {
     private static id.co.jalin.seconsole.engine.model.ChannelSnapshot.Socket toHttpSocket(
             SocketSnapshot s) {
         return new id.co.jalin.seconsole.engine.model.ChannelSnapshot.Socket(
-                s.getHashId(), s.getSocketId(), s.getName(), s.getType(),
+                s.getBindingId(), s.getSocketId(), s.getName(), s.getType(),
                 toHttpRuntime(s.getRuntime()),
                 toHttpQueue(s.getQueue()),
                 toHttpMetrics(s.getMetrics())

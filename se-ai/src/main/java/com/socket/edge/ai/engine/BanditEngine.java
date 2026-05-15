@@ -22,7 +22,7 @@ import java.util.stream.Collectors;
  * Called once per MetricsBundle (each gRPC push from se-core).
  *
  * Per-channel flow:
- *   1. Extract and sort CLIENT SocketSnapshots by hash_id.
+ *   1. Extract and sort CLIENT SocketSnapshots by binding_id.
  *   2. Skip channels with ≤ 1 endpoint (no load balancing needed).
  *   3. Build normalized feature vector x (N × 15).
  *   4. If previous state exists: compute reward, update bandit model.
@@ -68,7 +68,7 @@ public class BanditEngine {
 
         for (Map.Entry<String, List<SocketSnapshot>> entry : byChannel.entrySet()) {
             String channel = entry.getKey();
-            List<SocketSnapshot> endpoints = sortedByHashId(entry.getValue());
+            List<SocketSnapshot> endpoints = sortedByBindingId(entry.getValue());
 
             if (endpoints.size() <= 1) continue; // no balancing needed
 
@@ -107,7 +107,7 @@ public class BanditEngine {
         List<EndpointScore> scores = new ArrayList<>(n);
         for (int i = 0; i < n; i++) {
             double s = model.score(i, x);
-            scores.add(new EndpointScore(endpoints.get(i).getHashId(), s));
+            scores.add(new EndpointScore(endpoints.get(i).getBindingId(), s));
         }
 
         // softmax scores → integer weights
@@ -136,9 +136,9 @@ public class BanditEngine {
         return result;
     }
 
-    private List<SocketSnapshot> sortedByHashId(List<SocketSnapshot> list) {
+    private List<SocketSnapshot> sortedByBindingId(List<SocketSnapshot> list) {
         return list.stream()
-                .sorted(Comparator.comparing(SocketSnapshot::getHashId))
+                .sorted(Comparator.comparing(SocketSnapshot::getBindingId))
                 .collect(Collectors.toList());
     }
 
@@ -147,7 +147,7 @@ public class BanditEngine {
         for (SocketSnapshot s : endpoints) {
             String state = s.getRuntime().getState();
             if ("DOWN".equalsIgnoreCase(state) || "ERROR".equalsIgnoreCase(state)) {
-                down.add(s.getHashId());
+                down.add(s.getBindingId());
             }
         }
         return down;

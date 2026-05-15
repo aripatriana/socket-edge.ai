@@ -24,12 +24,12 @@ import java.util.Map;
  *   <li><strong>Channel-level</strong>: POST /api/channels/{name}/start (etc.)
  *       — forwards to engine {@code POST /socket/start?name={name}}, which
  *       batches over every socket in that channel.</li>
- *   <li><strong>Socket-level</strong>: POST /api/channels/{name}/sockets/{hashId}/start
- *       — forwards to {@code POST /socket/start?id={hashId}}.</li>
+ *   <li><strong>Socket-level</strong>: POST /api/channels/{name}/sockets/{bindingId}/start
+ *       — forwards to {@code POST /socket/start?id={bindingId}}.</li>
  * </ul>
  *
  * <p>The {@code {name}} in the socket-level URL is validated against the
- * cached snapshot to make sure the hashId actually belongs to that channel
+ * cached snapshot to make sure the bindingId actually belongs to that channel
  * (prevents hash-collision confusion and makes audit trails self-describing).
  *
  * <p>Every successful or failed action writes one row to {@code audit_entry}
@@ -73,22 +73,22 @@ public class ChannelControlController {
     }
 
     // =========================================================================
-    // Socket-level actions — single hashId
+    // Socket-level actions — single bindingId
     // =========================================================================
 
-    @PostMapping("/{name}/sockets/{hashId}/start")
-    public ResponseEntity<?> startSocket(@PathVariable String name, @PathVariable String hashId) {
-        return execute("start", "SOCKET", "id", hashId, hashId, name);
+    @PostMapping("/{name}/sockets/{bindingId}/start")
+    public ResponseEntity<?> startSocket(@PathVariable String name, @PathVariable String bindingId) {
+        return execute("start", "SOCKET", "id", bindingId, bindingId, name);
     }
 
-    @PostMapping("/{name}/sockets/{hashId}/stop")
-    public ResponseEntity<?> stopSocket(@PathVariable String name, @PathVariable String hashId) {
-        return execute("stop", "SOCKET", "id", hashId, hashId, name);
+    @PostMapping("/{name}/sockets/{bindingId}/stop")
+    public ResponseEntity<?> stopSocket(@PathVariable String name, @PathVariable String bindingId) {
+        return execute("stop", "SOCKET", "id", bindingId, bindingId, name);
     }
 
-    @PostMapping("/{name}/sockets/{hashId}/restart")
-    public ResponseEntity<?> restartSocket(@PathVariable String name, @PathVariable String hashId) {
-        return execute("restart", "SOCKET", "id", hashId, hashId, name);
+    @PostMapping("/{name}/sockets/{bindingId}/restart")
+    public ResponseEntity<?> restartSocket(@PathVariable String name, @PathVariable String bindingId) {
+        return execute("restart", "SOCKET", "id", bindingId, bindingId, name);
     }
 
     // =========================================================================
@@ -103,7 +103,7 @@ public class ChannelControlController {
             String target,
             String channelNameForValidation) {
 
-        // Validate channel exists + hashId belongs to it (for SOCKET scope).
+        // Validate channel exists + bindingId belongs to it (for SOCKET scope).
         ChannelSummary channel = snapshotService.findChannel(
                 channelNameForValidation != null ? channelNameForValidation : target);
         if (channelNameForValidation != null) {
@@ -116,7 +116,7 @@ public class ChannelControlController {
                 return ResponseEntity.status(404).body(Map.of(
                         "error", "socket_not_in_channel",
                         "channel", channelNameForValidation,
-                        "hashId", target));
+                        "bindingId", target));
             }
         } else {
             // Channel-level action — just check the channel exists.
@@ -179,9 +179,9 @@ public class ChannelControlController {
                 : ResponseEntity.status(502).body(body);
     }
 
-    private static boolean socketBelongsToChannel(ChannelSummary c, String hashId) {
-        for (SocketSummary s : c.servers()) if (hashId.equals(s.hashId())) return true;
-        for (SocketSummary s : c.clients()) if (hashId.equals(s.hashId())) return true;
+    private static boolean socketBelongsToChannel(ChannelSummary c, String bindingId) {
+        for (SocketSummary s : c.servers()) if (bindingId.equals(s.bindingId())) return true;
+        for (SocketSummary s : c.clients()) if (bindingId.equals(s.bindingId())) return true;
         return false;
     }
 

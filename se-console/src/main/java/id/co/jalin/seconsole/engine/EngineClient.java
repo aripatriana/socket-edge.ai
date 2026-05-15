@@ -108,7 +108,7 @@ public class EngineClient {
      *
      * @param action    "start", "stop", or "restart"
      * @param paramName "id" for per-socket, "name" for channel-level
-     * @param paramValue hashId or channel name
+     * @param paramValue bindingId or channel name
      * @return engine's {@code result} message (may be null or empty)
      * @throws EngineClientException on transport or envelope failure
      */

@@ -17,7 +17,7 @@ import java.util.concurrent.ThreadLocalRandom;
  * <p>On each request:
  * <ol>
  *   <li>Reads the current weight map for this channel from the registry.</li>
- *   <li>Assigns each candidate the AI weight keyed by its {@code hash_id}.</li>
+ *   <li>Assigns each candidate the AI weight keyed by its {@code binding_id}.</li>
  *   <li>Performs a weighted random draw in O(n) time.</li>
  * </ol>
  *
@@ -59,7 +59,7 @@ public final class AdaptiveStrategy implements SelectionStrategy<SocketChannel> 
         int total = 0;
 
         for (int i = 0; i < candidates.size(); i++) {
-            int w = aiWeights.getOrDefault(candidates.get(i).getHashId(), 0);
+            int w = aiWeights.getOrDefault(candidates.get(i).getBindingId(), 0);
             weights[i] = w;
             total += w;
         }

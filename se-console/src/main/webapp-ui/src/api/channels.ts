@@ -43,10 +43,10 @@ export const channelsApi = {
     );
   },
 
-  /** Single-socket action — scoped to one hashId. */
-  socketAction(name: string, hashId: string, action: ActionKey): Promise<SocketActionResponse> {
+  /** Single-socket action — scoped to one bindingId. */
+  socketAction(name: string, bindingId: string, action: ActionKey): Promise<SocketActionResponse> {
     return api.post<SocketActionResponse>(
-      `/api/channels/${encodeURIComponent(name)}/sockets/${encodeURIComponent(hashId)}/${action}`
+      `/api/channels/${encodeURIComponent(name)}/sockets/${encodeURIComponent(bindingId)}/${action}`
     );
   },
 };

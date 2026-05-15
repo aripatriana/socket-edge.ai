@@ -26,7 +26,7 @@ public class WeightPublisher implements com.socket.edge.ai.engine.Publisher {
 
     /**
      * @param channelName  logical channel name (e.g. "fello")
-     * @param weights      hashId → integer weight; sum = 100
+     * @param weights      bindingId → integer weight; sum = 100
      * @param reward       last computed reward [-1..+1]
      * @param confidence   exploration term of the highest-scored endpoint
      */
@@ -40,7 +40,7 @@ public class WeightPublisher implements com.socket.edge.ai.engine.Publisher {
 
         for (Map.Entry<String, Integer> e : weights.entrySet()) {
             builder.addWeights(EndpointWeight.newBuilder()
-                    .setHashId(e.getKey())
+                    .setBindingId(e.getKey())
                     .setWeight(e.getValue())
                     .build());
         }

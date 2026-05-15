@@ -27,10 +27,10 @@ export function useSocketAction(channelName: string) {
   return useMutation<
     SocketActionResponse,
     Error,
-    { hashId: string; action: ActionKey }
+    { bindingId: string; action: ActionKey }
   >({
-    mutationFn: ({ hashId, action }) =>
-      channelsApi.socketAction(channelName, hashId, action),
+    mutationFn: ({ bindingId, action }) =>
+      channelsApi.socketAction(channelName, bindingId, action),
     onSettled: () => {
       qc.invalidateQueries({ queryKey: ['channel-detail', channelName] });
       qc.invalidateQueries({ queryKey: ['channels'] });

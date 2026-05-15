@@ -80,8 +80,8 @@ class SoftmaxWeightSelectorTest {
     }
 
     @Test
-    @DisplayName("output preserves all input hashIds")
-    void allHashIdsPresent() {
+    @DisplayName("output preserves all input bindingIds")
+    void allBindingIdsPresent() {
         List<EndpointScore> scores = List.of(
                 new EndpointScore("x1", 1.0),
                 new EndpointScore("x2", 2.0),

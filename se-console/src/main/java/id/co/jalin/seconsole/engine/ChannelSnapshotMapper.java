@@ -47,7 +47,7 @@ public final class ChannelSnapshotMapper {
 
     private static SocketSummary toSocketSummary(ChannelSnapshot.Socket s) {
         return new SocketSummary(
-                s.hashId(), s.socketId(), s.name(), s.type(),
+                s.bindingId(), s.socketId(), s.name(), s.type(),
                 toRuntime(s.runtime()),
                 toQueue(s.queue()),
                 toMetrics(s.metrics())

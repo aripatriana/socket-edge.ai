@@ -102,7 +102,7 @@ render() {
     | .[]
     | [
         .id,
-        .hashId,
+        .bindingId,
         .msgIn,
         .msgOut,
         .queue,
@@ -114,10 +114,10 @@ render() {
   ' <<<"$json" |
 
   while IFS=$'\t' read -r \
-    id hashId in out queue err lastErr lastMsg
+    id bindingId in out queue err lastErr lastMsg
   do
     printf "${G}│${NC} %-35s ${G}│${NC} %8s ${G}│${NC} %15s ${G}│${NC} %15s ${G}│${NC} %7s ${G}│${NC} %7s ${G}│${NC} %10s ${G}│${NC} %10s ${G}│${NC}\n" \
-      "$id" "$hashId" "$in" "$out" "$queue" "$err" "$lastErr" "$lastMsg"
+      "$id" "$bindingId" "$in" "$out" "$queue" "$err" "$lastErr" "$lastMsg"
   done
 
   print_bottom

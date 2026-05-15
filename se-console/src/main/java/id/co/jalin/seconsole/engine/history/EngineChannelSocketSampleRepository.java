@@ -15,19 +15,19 @@ public interface EngineChannelSocketSampleRepository
 
     /** Time-series for one socket within a window, oldest-first for charting. */
     @Query("SELECT s FROM EngineChannelSocketSampleEntity s " +
-           "WHERE s.hashId = :hashId AND s.capturedAt BETWEEN :from AND :to " +
+           "WHERE s.bindingId = :bindingId AND s.capturedAt BETWEEN :from AND :to " +
            "ORDER BY s.capturedAt ASC")
     List<EngineChannelSocketSampleEntity> findForSocketBetween(
-            @Param("hashId") String hashId,
+            @Param("bindingId") String bindingId,
             @Param("from") Instant from,
             @Param("to") Instant to);
 
     /** Time-series for a set of sockets (one channel's sockets) in one go. */
     @Query("SELECT s FROM EngineChannelSocketSampleEntity s " +
-           "WHERE s.hashId IN :hashIds AND s.capturedAt BETWEEN :from AND :to " +
+           "WHERE s.bindingId IN :bindingIds AND s.capturedAt BETWEEN :from AND :to " +
            "ORDER BY s.capturedAt ASC")
     List<EngineChannelSocketSampleEntity> findForSocketsBetween(
-            @Param("hashIds") Collection<String> hashIds,
+            @Param("bindingIds") Collection<String> bindingIds,
             @Param("from") Instant from,
             @Param("to") Instant to);
 

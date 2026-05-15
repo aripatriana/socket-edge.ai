@@ -26,15 +26,15 @@ public class TelemetryRegistry {
     }
 
     public SocketTelemetry register(AbstractSocket socket, SocketEndpoint se) {
-        String hashId = CommonUtil.hashId(socket.getId(), se.id().id());
+        String bindingId = CommonUtil.bindingId(socket.getId(), se.id().id());
         SocketTelemetry telemetry = byId.computeIfAbsent(
-                hashId,
-                k -> new SocketTelemetry(hashId, registry, socket, se)
+                bindingId,
+                k -> new SocketTelemetry(bindingId, registry, socket, se)
         );
 
         nameToIds
                 .computeIfAbsent(socket.getName(), k -> ConcurrentHashMap.newKeySet())
-                .add(hashId);
+                .add(bindingId);
 
         return telemetry;
     }
@@ -54,16 +54,16 @@ public class TelemetryRegistry {
 
     public SocketTelemetry unregister(AbstractSocket socket, SocketEndpoint se) {
         // remove from name index
-        String hashId = CommonUtil.hashId(socket.getId(), se.id().id());
+        String bindingId = CommonUtil.bindingId(socket.getId(), se.id().id());
         Set<String> ids = nameToIds.get(socket.getName());
         if (ids != null) {
-            ids.remove(hashId);
+            ids.remove(bindingId);
             if (ids.isEmpty()) {
                 nameToIds.remove(socket.getName());
             }
         }
 
-        SocketTelemetry telemetry = byId.remove(hashId);
+        SocketTelemetry telemetry = byId.remove(bindingId);
         if (telemetry != null) {
             telemetry.dispose();
         }

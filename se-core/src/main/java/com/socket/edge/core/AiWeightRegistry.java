@@ -8,7 +8,7 @@ import java.util.concurrent.atomic.AtomicLong;
 /**
  * Thread-safe store for AI-computed routing weights received via {@code UpdateWeight} gRPC.
  *
- * <p>Keys: channel name → (hash_id → weight). Weights are replaced atomically per channel
+ * <p>Keys: channel name → (binding_id → weight). Weights are replaced atomically per channel
  * on each AI update cycle. The routing strategy reads from here on every request.</p>
  *
  * <p>Version counter increments on every {@link #update} so that cached routing cycles

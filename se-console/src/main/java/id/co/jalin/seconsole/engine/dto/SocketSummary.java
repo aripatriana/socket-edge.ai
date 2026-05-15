@@ -1,7 +1,7 @@
 package id.co.jalin.seconsole.engine.dto;
 
 public record SocketSummary(
-        String hashId,
+        String bindingId,
         String socketId,
         String name,
         String type,

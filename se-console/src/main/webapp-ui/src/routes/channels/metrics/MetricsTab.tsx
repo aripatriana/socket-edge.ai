@@ -43,7 +43,7 @@ export function MetricsTab({ channelName, channel }: Props) {
   const { data: history, isLoading, isError } = useChannelHistory(channelName, window);
 
   const endpoints = history?.endpoints ?? [];
-  const samplesByHash = history?.samplesByHashId ?? {};
+  const samplesByHash = history?.samplesByBindingId ?? {};
 
   const subtitle = preset === 'live' ? 'last 4 minutes' : `last ${preset}`;
 
@@ -173,15 +173,15 @@ function ChartPanel(props: {
   const [selectedHashes, setSelectedHashes] = useState<Set<string>>(new Set());
   const effectiveHashes = useMemo(() => {
     if (selectedHashes.size > 0) return selectedHashes;
-    return new Set(endpoints.map((e) => e.hashId));
+    return new Set(endpoints.map((e) => e.bindingId));
   }, [selectedHashes, endpoints]);
 
-  const toggleHash = (hashId: string) => {
+  const toggleHash = (bindingId: string) => {
     setSelectedHashes((prev) => {
-      const base = prev.size > 0 ? prev : new Set(endpoints.map((e) => e.hashId));
+      const base = prev.size > 0 ? prev : new Set(endpoints.map((e) => e.bindingId));
       const next = new Set(base);
-      if (next.has(hashId)) next.delete(hashId);
-      else next.add(hashId);
+      if (next.has(bindingId)) next.delete(bindingId);
+      else next.add(bindingId);
       return next;
     });
   };

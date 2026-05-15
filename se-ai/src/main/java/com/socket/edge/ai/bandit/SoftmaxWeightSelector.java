@@ -14,8 +14,8 @@ import java.util.*;
 public class SoftmaxWeightSelector {
 
     /**
-     * @param scores  non-empty list of (hashId, score) pairs
-     * @return map hashId → integer weight; weights sum to exactly 100
+     * @param scores  non-empty list of (bindingId, score) pairs
+     * @return map bindingId → integer weight; weights sum to exactly 100
      */
     public Map<String, Integer> select(List<EndpointScore> scores) {
         int n = scores.size();
@@ -43,7 +43,7 @@ public class SoftmaxWeightSelector {
         for (int i = 0; i < leftover; i++) weights[order[i]]++;
 
         Map<String, Integer> result = new LinkedHashMap<>();
-        for (int i = 0; i < n; i++) result.put(scores.get(i).hashId(), weights[i]);
+        for (int i = 0; i < n; i++) result.put(scores.get(i).bindingId(), weights[i]);
         return result;
     }
 

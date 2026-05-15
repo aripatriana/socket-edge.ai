@@ -76,7 +76,7 @@ export function ChannelCard({ channel, expanded, onToggle }: Props) {
               ) : (
                 <div className="mt-2 space-y-3">
                   {channel.servers.map((s, i) => (
-                    <SocketRow key={s.hashId ?? `${s.socketId}-${i}`} socket={s} isLast={i === channel.servers.length - 1} />
+                    <SocketRow key={s.bindingId ?? `${s.socketId}-${i}`} socket={s} isLast={i === channel.servers.length - 1} />
                   ))}
                 </div>
               )}
@@ -96,7 +96,7 @@ export function ChannelCard({ channel, expanded, onToggle }: Props) {
               ) : (
                 <div className="mt-2 space-y-3">
                   {channel.clients.map((s, i) => (
-                    <SocketRow key={s.hashId ?? `${s.socketId}-${i}`} socket={s} isLast={i === channel.clients.length - 1} />
+                    <SocketRow key={s.bindingId ?? `${s.socketId}-${i}`} socket={s} isLast={i === channel.clients.length - 1} />
                   ))}
                 </div>
               )}

@@ -167,11 +167,11 @@ public class SocketChannel implements WeightedCandidate, LoadAware {
     }
 
     /**
-     * Returns the hash_id that identifies this socket channel in {@code AiWeightRegistry}.
+     * Returns the binding_id that identifies this socket channel in {@code AiWeightRegistry}.
      * Computed identically to {@code TelemetryRegistry}: CRC32(socketId|host:port).
      */
-    public String getHashId() {
-        return CommonUtil.hashId(socketId, socketEndpoint.id().id());
+    public String getBindingId() {
+        return CommonUtil.bindingId(socketId, socketEndpoint.id().id());
     }
 
     public void onMessage() {

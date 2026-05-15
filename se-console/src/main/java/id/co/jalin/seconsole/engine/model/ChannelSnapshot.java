@@ -35,7 +35,7 @@ public record ChannelSnapshot(
 
     @JsonIgnoreProperties(ignoreUnknown = true)
     public record Socket(
-            String hashId,
+            String bindingId,
             String socketId,
             String name,
             String type,            // CLIENT | SERVER

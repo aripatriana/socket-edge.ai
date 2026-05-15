@@ -13,7 +13,7 @@ import { SocketActionMenu } from './SocketActionMenu';
 interface Props {
   channel: ChannelSummary;
   onSocketAction: (socket: SocketSummary, action: ActionKey) => void;
-  busyHashId: string | null;   // hashId currently awaiting action response (greyed out)
+  busyBindingId: string | null;   // bindingId currently awaiting action response (greyed out)
 }
 
 /**
@@ -27,7 +27,7 @@ interface Props {
  * Server sockets appear first, then clients, each group separated by a
  * faint divider row so operators can eyeball the layout at a glance.
  */
-export function SocketTable({ channel, onSocketAction, busyHashId }: Props) {
+export function SocketTable({ channel, onSocketAction, busyBindingId }: Props) {
   const rows: Array<{ socket: SocketSummary; groupLabel?: string }> = [];
   if (channel.servers.length > 0) {
     rows.push({ socket: channel.servers[0], groupLabel: 'SERVER' });
@@ -69,10 +69,10 @@ export function SocketTable({ channel, onSocketAction, busyHashId }: Props) {
           <tbody>
             {rows.map((row) => (
               <SocketRow
-                key={row.socket.hashId}
+                key={row.socket.bindingId}
                 socket={row.socket}
                 groupLabel={row.groupLabel}
-                busy={busyHashId === row.socket.hashId}
+                busy={busyBindingId === row.socket.bindingId}
                 onAction={(action) => onSocketAction(row.socket, action)}
               />
             ))}

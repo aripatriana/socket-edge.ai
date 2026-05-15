@@ -20,14 +20,14 @@ import java.util.Map;
  * @param windowMs       requested window duration in milliseconds (echo)
  * @param now            server clock epoch ms when this response was assembled
  * @param endpoints      display metadata per endpoint (current status)
- * @param samplesByHashId hashId → oldest-first time-series samples
+ * @param samplesByBindingId bindingId → oldest-first time-series samples
  */
 public record ChannelHistoryResponse(
         String channelName,
         long windowMs,
         long now,
         List<EndpointRef> endpoints,
-        Map<String, List<HistorySample>> samplesByHashId
+        Map<String, List<HistorySample>> samplesByBindingId
 ) {
 
     /**
@@ -37,7 +37,7 @@ public record ChannelHistoryResponse(
      * styling (drawn from the live cache, not historical).
      */
     public record EndpointRef(
-            String hashId,
+            String bindingId,
             String label,
             String fullId,
             String type,       // SERVER | CLIENT

@@ -45,7 +45,7 @@ public class FeatureBuilder {
      * Builds a normalized feature vector for the given channel.
      *
      * @param channelName  the logical channel name (e.g. "fello")
-     * @param endpoints    CLIENT SocketSnapshots, sorted by hash_id for stability
+     * @param endpoints    CLIENT SocketSnapshots, sorted by binding_id for stability
      * @return normalized double[] of length endpoints.size() * 15
      */
     public double[] build(String channelName, List<SocketSnapshot> endpoints) {

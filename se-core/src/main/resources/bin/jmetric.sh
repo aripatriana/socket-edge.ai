@@ -101,7 +101,7 @@ render() {
     | .[]
     | [
         .id,
-        .hashId,
+        .bindingId,
 
         fmt_latency(.avgLatency),
         fmt_latency(.minLatency),
@@ -125,13 +125,13 @@ render() {
   ' <<<"$json" |
 
   while IFS=$'\t' read -r \
-    id hashId \
+    id bindingId \
     alat mlat xlat lp90 lp95 \
     ptps pmin pmax pp90 pp95 \
     ttps tmin tmax tp90 tp95
   do
     printf "${G}│${NC} %-32s ${G}│${NC} %8s ${G}│${NC} %6s ${G}│${NC} %6s ${G}│${NC} %6s ${G}│${NC} %6s ${G}│${NC} %6s ${G}│${NC} %6s ${G}│${NC} %6s ${G}│${NC} %6s ${G}│${NC} %6s ${G}│${NC} %6s ${G}│${NC} %6s ${G}│${NC} %6s ${G}│${NC} %6s ${G}│${NC} %6s ${G}│${NC} %6s ${G}│${NC}\n" \
-      "$id" "$hashId" \
+      "$id" "$bindingId" \
       "$alat" "$mlat" "$xlat" "$lp90" "$lp95" \
       "$ptps" "$pmin" "$pmax" "$pp90" "$pp95" \
       "$ttps" "$tmin" "$tmax" "$tp90" "$tp95"

@@ -85,7 +85,7 @@ public class EngineChannelHistoryService {
             if (snap.sockets() != null && !snap.sockets().isEmpty()) {
                 List<EngineChannelSocketSampleEntity> samples = new ArrayList<>(snap.sockets().size());
                 for (ChannelSnapshot.Socket s : snap.sockets()) {
-                    if (s == null || s.hashId() == null) continue;
+                    if (s == null || s.bindingId() == null) continue;
                     samples.add(toSample(headerId, capturedAt, s));
                 }
                 sampleRepo.saveAll(samples);
@@ -108,11 +108,11 @@ public class EngineChannelHistoryService {
 
     @Transactional(readOnly = true)
     public List<EngineChannelSocketSampleEntity> samplesBetween(
-        Collection<String> hashIds, Instant from, Instant to) {
-        if (hashIds == null || hashIds.isEmpty() || from == null || to == null || from.isAfter(to)) {
+        Collection<String> bindingIds, Instant from, Instant to) {
+        if (bindingIds == null || bindingIds.isEmpty() || from == null || to == null || from.isAfter(to)) {
             return Collections.emptyList();
         }
-        return sampleRepo.findForSocketsBetween(hashIds, from, to);
+        return sampleRepo.findForSocketsBetween(bindingIds, from, to);
     }
 
     @Transactional(readOnly = true)
@@ -190,11 +190,11 @@ public class EngineChannelHistoryService {
         EngineChannelSocketSampleEntity e = new EngineChannelSocketSampleEntity();
         e.setSnapshotHeaderId(headerId);
         e.setCapturedAt(capturedAt);
-        // hash_id, socket_id, channel_name, socket_type are all NOT NULL in
+        // binding_id, socket_id, channel_name, socket_type are all NOT NULL in
         // V3. Coerce missing values to a short placeholder rather than letting
         // Hibernate throw on insert — the ingest path must never break on a
         // malformed engine payload.
-        e.setHashId(nonNullTrim(s.hashId(), 16, "?"));
+        e.setBindingId(nonNullTrim(s.bindingId(), 16, "?"));
         e.setSocketId(nonNullTrim(s.socketId(), 128, "unknown"));
         e.setChannelName(nonNullTrim(s.name(), 64, "unknown"));
         e.setSocketType(nonNullTrim(s.type(), 8, "CLIENT"));

@@ -15,9 +15,9 @@ option java_multiple_files = true;
 // to its routing strategy immediately.
 // ─────────────────────────────────────────────────────────────
 
-// Weight assignment for a single endpoint (identified by hash_id).
+// Weight assignment for a single endpoint (identified by binding_id).
 message EndpointWeight {
-    string hash_id = 1;   // matches SocketSnapshot.hash_id
+    string binding_id = 1;   // matches SocketSnapshot.binding_id
     int32  weight  = 2;   // 0..100; DOWN endpoint always 0
 }
 

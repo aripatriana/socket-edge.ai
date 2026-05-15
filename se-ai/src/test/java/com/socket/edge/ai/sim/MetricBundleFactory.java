@@ -18,14 +18,14 @@ public final class MetricBundleFactory {
     /**
      * Builds a single CLIENT SocketSnapshot.
      *
-     * @param hashId       unique endpoint identifier (maps to hash_id)
+     * @param bindingId    unique endpoint identifier (maps to binding_id)
      * @param channelName  channel this endpoint belongs to (maps to name field)
      * @param latencyAvgNs average latency in nanoseconds
      * @param throughputAvg average throughput TPS
      * @param pressureAvg  average pressure TPS
      * @param state        runtime state: ACTIVE | DOWN | ERROR | WAIT | STANDBY
      */
-    public static SocketSnapshot client(String hashId,
+    public static SocketSnapshot client(String bindingId,
                                         String channelName,
                                         long latencyAvgNs,
                                         long throughputAvg,
@@ -48,8 +48,8 @@ public final class MetricBundleFactory {
         long presP95 = (long) (pressureAvg * 1.2);
 
         return SocketSnapshot.newBuilder()
-                .setHashId(hashId)
-                .setSocketId("socket-" + hashId)
+                .setBindingId(bindingId)
+                .setSocketId("socket-" + bindingId)
                 .setName(channelName)
                 .setType("CLIENT")
                 .setRuntime(SocketRuntime.newBuilder().setState(state).build())
@@ -64,10 +64,10 @@ public final class MetricBundleFactory {
     /**
      * Builds a SERVER SocketSnapshot — included in bundles to verify se-ai filters correctly.
      */
-    public static SocketSnapshot server(String hashId, String channelName) {
+    public static SocketSnapshot server(String bindingId, String channelName) {
         return SocketSnapshot.newBuilder()
-                .setHashId(hashId)
-                .setSocketId("server-" + hashId)
+                .setBindingId(bindingId)
+                .setSocketId("server-" + bindingId)
                 .setName(channelName)
                 .setType("SERVER")
                 .setRuntime(SocketRuntime.newBuilder().setState("LISTEN").build())

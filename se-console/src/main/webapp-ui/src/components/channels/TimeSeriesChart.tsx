@@ -29,7 +29,7 @@ import { formatLatency } from '../../lib/formatEngine';
  *       metrics — the engine exposes them for throughput and pressure too.</li>
  *   <li>Rendered series count = selectedEndpoints × selectedAggregations.
  *       Each series is a separate {@code <Line>} with a unique series key
- *       {@code `${hashId}:${agg}`}, stable color from endpoint index,
+ *       {@code `${bindingId}:${agg}`}, stable color from endpoint index,
  *       and dasharray from aggregation slot (so avg / min / max lines
  *       of the same endpoint are visually distinguishable).</li>
  * </ul>
@@ -44,7 +44,7 @@ interface Props {
   endpoints: EndpointRef[];
   samplesByHash: Record<string, HistorySample[]>;
   selectedHashes: Set<string>;
-  onToggleEndpoint: (hashId: string) => void;
+  onToggleEndpoint: (bindingId: string) => void;
   selectedAggs: Set<AggregationKey>;
   onToggleAgg: (a: AggregationKey) => void;
 }
@@ -84,7 +84,7 @@ export function TimeSeriesChart({
   selectedAggs,
   onToggleAgg,
 }: Props) {
-  // Build one row per timestamp, with one column per (hashId, agg) series.
+  // Build one row per timestamp, with one column per (bindingId, agg) series.
   const { chartData, seriesKeys } = useMemo(
     () => buildChartData(endpoints, samplesByHash, metric, selectedHashes, selectedAggs),
     [endpoints, samplesByHash, metric, selectedHashes, selectedAggs]
@@ -105,11 +105,11 @@ export function TimeSeriesChart({
         <FilterGroup label="ENDPOINTS">
           {endpoints.map((e, i) => (
             <EndpointCheckbox
-              key={e.hashId}
+              key={e.bindingId}
               label={e.label}
               colorIndex={i}
-              checked={selectedHashes.has(e.hashId)}
-              onChange={() => onToggleEndpoint(e.hashId)}
+              checked={selectedHashes.has(e.bindingId)}
+              onChange={() => onToggleEndpoint(e.bindingId)}
               dimmed={e.status === 'DOWN' || e.status === 'ERROR'}
             />
           ))}
@@ -285,7 +285,7 @@ function EmptyChart() {
 // ===========================================================================
 
 interface SeriesMeta {
-  key: string;                  // "{hashId}:{agg}"
+  key: string;                  // "{bindingId}:{agg}"
   endpoint: EndpointRef;
   agg: AggregationKey;
 }
@@ -310,9 +310,9 @@ function CustomTooltip({
   for (const p of payload) {
     const meta = seriesKeys.get(p.name);
     if (!meta) continue;
-    const g = byEndpoint.get(meta.endpoint.hashId);
+    const g = byEndpoint.get(meta.endpoint.bindingId);
     if (g) g.rows.push(p);
-    else byEndpoint.set(meta.endpoint.hashId, { label: meta.endpoint.label, rows: [p] });
+    else byEndpoint.set(meta.endpoint.bindingId, { label: meta.endpoint.label, rows: [p] });
   }
 
   return (
@@ -361,10 +361,10 @@ function buildChartData(
   // Stable order: iterate endpoints in given order, inner iterate agg list order.
   const seriesKeys = new Map<string, SeriesMeta>();
   for (const e of endpoints) {
-    if (!selectedHashes.has(e.hashId)) continue;
+    if (!selectedHashes.has(e.bindingId)) continue;
     for (const agg of AGG_OPTIONS) {
       if (!selectedAggs.has(agg)) continue;
-      const key = `${e.hashId}:${agg}`;
+      const key = `${e.bindingId}:${agg}`;
       seriesKeys.set(key, { key, endpoint: e, agg });
     }
   }
@@ -372,8 +372,8 @@ function buildChartData(
   // Collect timestamps from any visible endpoint. HistorySample.t is epoch ms.
   const allTs = new Set<number>();
   for (const e of endpoints) {
-    if (!selectedHashes.has(e.hashId)) continue;
-    for (const s of samplesByHash[e.hashId] ?? []) allTs.add(s.t);
+    if (!selectedHashes.has(e.bindingId)) continue;
+    for (const s of samplesByHash[e.bindingId] ?? []) allTs.add(s.t);
   }
   const sortedTs = Array.from(allTs).sort((a, b) => a - b);
 
@@ -381,14 +381,14 @@ function buildChartData(
   const sampleLookup = new Map<string, Map<number, HistorySample>>();
   for (const e of endpoints) {
     const m = new Map<number, HistorySample>();
-    for (const s of samplesByHash[e.hashId] ?? []) m.set(s.t, s);
-    sampleLookup.set(e.hashId, m);
+    for (const s of samplesByHash[e.bindingId] ?? []) m.set(s.t, s);
+    sampleLookup.set(e.bindingId, m);
   }
 
   const chartData = sortedTs.map((ts) => {
     const row = { ts } as ChartRow;
     for (const { key, endpoint, agg } of seriesKeys.values()) {
-      const pt = sampleLookup.get(endpoint.hashId)?.get(ts);
+      const pt = sampleLookup.get(endpoint.bindingId)?.get(ts);
       if (!pt) continue;
       row[key] = pick(pt, metric, agg);
     }

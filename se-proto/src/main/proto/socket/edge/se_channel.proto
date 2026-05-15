@@ -72,12 +72,12 @@ message SocketMetrics {
 
 
 // ── Full per-socket snapshot ──────────────────────────────────
-// hash_id  = composite key: hash(socketId + endpointId)
-// socket_id = logical socket identifier
-// type      = CLIENT | SERVER
+// binding_id = composite key: CRC32(socketId|endpointId)
+// socket_id  = logical socket identifier
+// type       = CLIENT | SERVER
 
 message SocketSnapshot {
-    string        hash_id   = 1;
+    string        binding_id = 1;
     string        socket_id = 2;
     string        name      = 3;
     string        type      = 4;

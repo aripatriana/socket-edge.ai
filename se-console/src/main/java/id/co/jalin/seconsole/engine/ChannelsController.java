@@ -138,7 +138,7 @@ public class ChannelsController {
      * <p>Window is parsed as a short form ({@code 30s}, {@code 4m},
      * {@code 1h}); unknown → 4m default. The backend queries the
      * {@code engine_channel_socket_sample} table for rows matching any
-     * hashId under this channel and returns them grouped per socket.
+     * bindingId under this channel and returns them grouped per socket.
      */
     @GetMapping("/channels/{name}/history")
     public ResponseEntity<?> history(
@@ -153,17 +153,17 @@ public class ChannelsController {
         }
 
         List<EndpointRef> endpoints = buildEndpointRefs(c);
-        Set<String> hashIds = new LinkedHashSet<>();
-        for (EndpointRef r : endpoints) hashIds.add(r.hashId());
+        Set<String> bindingIds = new LinkedHashSet<>();
+        for (EndpointRef r : endpoints) bindingIds.add(r.bindingId());
 
         long windowMs = parseWindow(window);
         Instant to = Instant.now();
         Instant from = to.minusMillis(windowMs);
 
         List<EngineChannelSocketSampleEntity> rows =
-                historyService.samplesBetween(hashIds, from, to);
+                historyService.samplesBetween(bindingIds, from, to);
 
-        Map<String, List<HistorySample>> byHash = groupSamplesByHashId(rows, hashIds);
+        Map<String, List<HistorySample>> byHash = groupSamplesByBindingId(rows, bindingIds);
 
         return ResponseEntity.ok(new ChannelHistoryResponse(
                 name, windowMs, to.toEpochMilli(),
@@ -175,16 +175,16 @@ public class ChannelsController {
     // =========================================================================
 
     private static List<EndpointRef> buildEndpointRefs(ChannelSummary c) {
-        // LinkedHashMap preserves insertion order; dedupe on hashId.
+        // LinkedHashMap preserves insertion order; dedupe on bindingId.
         Map<String, EndpointRef> byHash = new LinkedHashMap<>();
-        for (SocketSummary s : c.servers()) byHash.putIfAbsent(s.hashId(), toRef(s));
-        for (SocketSummary s : c.clients()) byHash.putIfAbsent(s.hashId(), toRef(s));
+        for (SocketSummary s : c.servers()) byHash.putIfAbsent(s.bindingId(), toRef(s));
+        for (SocketSummary s : c.clients()) byHash.putIfAbsent(s.bindingId(), toRef(s));
         return new ArrayList<>(byHash.values());
     }
 
     private static EndpointRef toRef(SocketSummary s) {
         return new EndpointRef(
-                s.hashId(),
+                s.bindingId(),
                 shortLabel(s),
                 s.socketId(),
                 s.type(),
@@ -220,10 +220,10 @@ public class ChannelsController {
 
     /**
      * Project repository rows into the {@link HistorySample} shape, grouped
-     * by hashId. Includes empty lists for hashIds the client asked about
+     * by bindingId. Includes empty lists for bindingIds the client asked about
      * but that had zero rows in the window (graceful rendering on the FE).
      */
-    private static Map<String, List<HistorySample>> groupSamplesByHashId(
+    private static Map<String, List<HistorySample>> groupSamplesByBindingId(
             List<EngineChannelSocketSampleEntity> rows, Set<String> expected) {
 
         Map<String, List<HistorySample>> out = new LinkedHashMap<>(expected.size() * 2);
@@ -231,7 +231,7 @@ public class ChannelsController {
 
         for (EngineChannelSocketSampleEntity r : rows) {
             List<HistorySample> bucket = out.computeIfAbsent(
-                    r.getHashId(), k -> new ArrayList<>());
+                    r.getBindingId(), k -> new ArrayList<>());
             bucket.add(new HistorySample(
                     r.getCapturedAt().toEpochMilli(),
                     r.getState(),
@@ -296,7 +296,7 @@ public class ChannelsController {
     @SuppressWarnings("unused")
     private static Set<String> toHashSet(List<EndpointRef> refs) {
         Set<String> out = new HashSet<>(refs.size() * 2);
-        for (EndpointRef r : refs) out.add(r.hashId());
+        for (EndpointRef r : refs) out.add(r.bindingId());
         return out;
     }
 }

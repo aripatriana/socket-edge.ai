@@ -104,7 +104,7 @@ render() {
     | .[]
     | [
         .id,
-        .hashId,
+        .bindingId,
         (.localHost | select(. != "") // "-"),
         (.remoteHost | select(. != "") // "-"),
         (.active | tostring),
@@ -115,7 +115,7 @@ render() {
       ]
     | @tsv
   ' <<<"$json" |
-  while IFS=$'\t' read -r id hashId local remote conn uptime lc ld status; do
+  while IFS=$'\t' read -r id bindingId local remote conn uptime lc ld status; do
     conn_color="$G"
     [[ "$conn" == "0" ]] && conn_color="$R"
 
@@ -130,7 +130,7 @@ render() {
     IFS=',' read -ra REMOTES <<< "$remote"
 
     printf "${G}│${NC} %-35s ${G}│${NC} %-8s ${G}│${NC} %-20s ${G}│${NC} %-20s ${G}│${NC} ${conn_color}%-4s${NC} ${G}│${NC} %-8s ${G}│${NC} %-8s ${G}│${NC} %-8s ${G}│${NC} ${status_color}%-7s${NC} ${G}│${NC}\n" \
-      "$id" "$hashId" "$local" "${REMOTES[0]}" "$conn" "$uptime" "$lc" "$ld" "$status"
+      "$id" "$bindingId" "$local" "${REMOTES[0]}" "$conn" "$uptime" "$lc" "$ld" "$status"
 
     for ((i=1; i<${#REMOTES[@]}; i++)); do
       printf "${G}│${NC} %-35s ${G}│${NC} %-8s ${G}│${NC} %-20s ${G}│${NC} %-20s ${G}│${NC} %-4s ${G}│${NC} %-8s ${G}│${NC} %-8s ${G}│${NC} %-8s ${G}│${NC} %-7s ${G}│${NC}\n" \

@@ -16,7 +16,7 @@ import java.time.Instant;
  * <p>{@code snapshot_header_id} FK to {@link EngineChannelSnapshotEntity};
  * delete cascades from header to child at the DB level (see Flyway V3).
  *
- * <p>We de-normalise {@code captured_at} here so "chart TPS of hashId X for
+ * <p>We de-normalise {@code captured_at} here so "chart TPS of bindingId X for
  * last hour" is a single-table range scan without joining the header —
  * cheaper at query time, at a small cost in disk (8 bytes × ~2M rows/day ≈
  * 16 MB/day, trivial).
@@ -26,7 +26,7 @@ import java.time.Instant;
     name = "engine_channel_socket_sample",
     indexes = {
         @Index(name = "idx_ecss_header", columnList = "snapshot_header_id"),
-        @Index(name = "idx_ecss_hash_time", columnList = "hash_id,captured_at DESC")
+        @Index(name = "idx_ecss_binding_time", columnList = "binding_id,captured_at DESC")
     }
 )
 public class EngineChannelSocketSampleEntity {
@@ -43,7 +43,7 @@ public class EngineChannelSocketSampleEntity {
     private Instant capturedAt;
 
     // Identity
-    @Column(name = "hash_id", length = 16, nullable = false)   private String hashId;
+    @Column(name = "binding_id", length = 16, nullable = false) private String bindingId;
     @Column(name = "socket_id", length = 128, nullable = false) private String socketId;
     @Column(name = "channel_name", length = 64, nullable = false) private String channelName;
     @Column(name = "socket_type", length = 8, nullable = false) private String socketType;
@@ -95,8 +95,8 @@ public class EngineChannelSocketSampleEntity {
     public Instant getCapturedAt() { return capturedAt; }
     public void setCapturedAt(Instant capturedAt) { this.capturedAt = capturedAt; }
 
-    public String getHashId() { return hashId; }
-    public void setHashId(String hashId) { this.hashId = hashId; }
+    public String getBindingId() { return bindingId; }
+    public void setBindingId(String bindingId) { this.bindingId = bindingId; }
     public String getSocketId() { return socketId; }
     public void setSocketId(String socketId) { this.socketId = socketId; }
     public String getChannelName() { return channelName; }

@@ -65,7 +65,7 @@ export interface SocketMetrics {
 }
 
 export interface SocketSummary {
-  hashId: string;
+  bindingId: string;
   socketId: string;
   name: string;
   type: SocketType;
@@ -152,7 +152,7 @@ export interface HistorySample {
 }
 
 export interface EndpointRef {
-  hashId: string;
+  bindingId: string;
   label: string;
   fullId: string;
   type: SocketType;
@@ -164,7 +164,7 @@ export interface ChannelHistoryResponse {
   windowMs: number;
   now: number;
   endpoints: EndpointRef[];
-  samplesByHashId: Record<string, HistorySample[]>;
+  samplesByBindingId: Record<string, HistorySample[]>;
 }
 
 export type AggregationKey = 'avg' | 'min' | 'max' | 'p90' | 'p95';

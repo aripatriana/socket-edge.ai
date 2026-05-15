@@ -103,7 +103,7 @@ public class CoreServiceImpl extends CoreServiceGrpc.CoreServiceImplBase {
         }
         LinkedHashMap<String, Integer> weights = new LinkedHashMap<>();
         for (EndpointWeight ew : request.getWeightsList()) {
-            weights.put(ew.getHashId(), ew.getWeight());
+            weights.put(ew.getBindingId(), ew.getWeight());
         }
         aiWeightRegistry.update(request.getChannelName(), weights);
         log.info("AI weight update: channel={} reward={} weights={}",

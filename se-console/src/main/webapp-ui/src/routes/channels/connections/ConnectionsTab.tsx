@@ -33,7 +33,7 @@ interface Props {
 export function ConnectionsTab({ channelName, channel }: Props) {
   const [pending, setPending] = useState<ConfirmRequest | null>(null);
   const [pendingKind, setPendingKind] = useState<'channel' | 'socket' | null>(null);
-  const [pendingHashId, setPendingHashId] = useState<string | null>(null);
+  const [pendingBindingId, setPendingBindingId] = useState<string | null>(null);
   const [banner, setBanner] = useState<BannerState | null>(null);
 
   const channelMut = useChannelAction(channelName);
@@ -41,7 +41,7 @@ export function ConnectionsTab({ channelName, channel }: Props) {
 
   const busy = channelMut.isPending || socketMut.isPending;
   const busyChannelAction = channelMut.isPending ? (channelMut.variables as ActionKey) : null;
-  const busyHashId = socketMut.isPending ? socketMut.variables?.hashId ?? null : null;
+  const busyBindingId = socketMut.isPending ? socketMut.variables?.bindingId ?? null : null;
 
   const requestChannelAction = (action: ActionKey) => {
     setPending({
@@ -55,7 +55,7 @@ export function ConnectionsTab({ channelName, channel }: Props) {
         : undefined,
     });
     setPendingKind('channel');
-    setPendingHashId(null);
+    setPendingBindingId(null);
   };
 
   const requestSocketAction = (socket: SocketSummary, action: ActionKey) => {
@@ -70,13 +70,13 @@ export function ConnectionsTab({ channelName, channel }: Props) {
         : undefined,
     });
     setPendingKind('socket');
-    setPendingHashId(socket.hashId);
+    setPendingBindingId(socket.bindingId);
   };
 
   const onCancel = () => {
     setPending(null);
     setPendingKind(null);
-    setPendingHashId(null);
+    setPendingBindingId(null);
   };
 
   const onConfirm = async () => {
@@ -87,8 +87,8 @@ export function ConnectionsTab({ channelName, channel }: Props) {
       let resp: SocketActionResponse;
       if (pendingKind === 'channel') {
         resp = await channelMut.mutateAsync(req.action);
-      } else if (pendingHashId) {
-        resp = await socketMut.mutateAsync({ hashId: pendingHashId, action: req.action });
+      } else if (pendingBindingId) {
+        resp = await socketMut.mutateAsync({ bindingId: pendingBindingId, action: req.action });
       } else {
         return;
       }
@@ -109,7 +109,7 @@ export function ConnectionsTab({ channelName, channel }: Props) {
     } finally {
       setPending(null);
       setPendingKind(null);
-      setPendingHashId(null);
+      setPendingBindingId(null);
     }
   };
 
@@ -136,7 +136,7 @@ export function ConnectionsTab({ channelName, channel }: Props) {
       <SocketTable
         channel={channel}
         onSocketAction={requestSocketAction}
-        busyHashId={busyHashId}
+        busyBindingId={busyBindingId}
       />
 
       <ActionConfirmDialog

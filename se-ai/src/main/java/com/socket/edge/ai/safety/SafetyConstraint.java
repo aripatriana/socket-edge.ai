@@ -29,9 +29,9 @@ public class SafetyConstraint {
     }
 
     /**
-     * @param weights     hashId → proposed integer weight (from softmax, sum = 100)
-     * @param downSockets set of hash_ids currently in DOWN or ERROR state
-     * @return adjusted hashId → weight, sum = 100
+     * @param weights     bindingId → proposed integer weight (from softmax, sum = 100)
+     * @param downSockets set of binding_ids currently in DOWN or ERROR state
+     * @return adjusted bindingId → weight, sum = 100
      */
     public Map<String, Integer> apply(Map<String, Integer> weights, Set<String> downSockets) {
         List<String> active = new ArrayList<>();
