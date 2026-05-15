@@ -153,7 +153,7 @@ public class SystemBootstrap {
 
         // 3. Audit logger
         auditLogger = systemConfig.audit().enabled()
-                ? new AuditLogger(systemConfig.audit(), baseDir, pciMaskUtil)
+                ? new AuditLogger(systemConfig.audit(), pciMaskUtil)
                 : AuditLogger.disabled();
 
         // 4. ISO Packager & Parser
@@ -386,7 +386,6 @@ public class SystemBootstrap {
             safeStop("Sockets", () -> { if (socketManager != null) socketManager.destroyAll(); });
             safeStop("Transport", () -> { if (transportRegister != null) transportRegister.destroy(); });
             safeStop("Correlation store", () -> { if (correlationStore != null) correlationStore.shutdown(); });
-            safeStop("Audit logger", () -> { if (auditLogger != null) auditLogger.shutdown(); });
 
             // Phase 3: Grace period for final cleanup
             if (gracePeriod > 0) {

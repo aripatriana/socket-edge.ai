@@ -58,6 +58,48 @@
         </encoder>
     </appender>
 
+    <!-- ================= AUDIT FILE APPENDER ================= -->
+    <!--
+        Encoder pakai %msg%n saja — AuditLogger sudah menghasilkan JSON lengkap.
+        Tidak perlu prefix timestamp/level dari logback.
+    -->
+    <appender name="AUDIT_FILE" class="ch.qos.logback.core.rolling.RollingFileAppender">
+        <file>${LOG_HOME}/audit.jsonl</file>
+
+        <rollingPolicy class="ch.qos.logback.core.rolling.TimeBasedRollingPolicy">
+            <fileNamePattern>${LOG_HOME}/audit.%d{yyyy-MM-dd}.jsonl</fileNamePattern>
+            <maxHistory>90</maxHistory>
+        </rollingPolicy>
+
+        <encoder>
+            <pattern>%msg%n</pattern>
+        </encoder>
+    </appender>
+
+    <!-- ================= ASYNC AUDIT APPENDER ================= -->
+    <!--
+        neverBlock=true  : non-blocking, drop jika queue penuh (konsisten dengan
+                           perilaku offer() sebelumnya).
+        discardingThreshold=0 : jangan discard INFO saat queue 80% penuh
+                                (default logback buang TRACE/DEBUG/INFO di titik ini).
+        queueSize=10000  : sama dengan kapasitas queue lama.
+    -->
+    <appender name="ASYNC_AUDIT" class="ch.qos.logback.classic.AsyncAppender">
+        <queueSize>10000</queueSize>
+        <discardingThreshold>0</discardingThreshold>
+        <neverBlock>true</neverBlock>
+        <appender-ref ref="AUDIT_FILE"/>
+    </appender>
+
+    <!-- ================= AUDIT LOGGER ================= -->
+    <!--
+        additivity=false : entry audit tidak ikut naik ke root logger,
+                           sehingga tidak double-write ke FILE/CONSOLE.
+    -->
+    <logger name="audit" level="INFO" additivity="false">
+        <appender-ref ref="ASYNC_AUDIT"/>
+    </logger>
+
     <!-- ================= ROOT ================= -->
     <root level="INFO">
         <appender-ref ref="FILE"/>
