@@ -7,6 +7,8 @@ import io.grpc.stub.StreamObserver;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.util.LinkedHashMap;
+
 /**
  * gRPC service implementation hosted in se-core.
  *
@@ -22,19 +24,22 @@ public class CoreServiceImpl extends CoreServiceGrpc.CoreServiceImplBase {
 
     private static final Logger log = LoggerFactory.getLogger(CoreServiceImpl.class);
 
-    private final SystemInfo       cachedSystemInfo;
+    private final SystemInfo        cachedSystemInfo;
     private final MetricsBroadcaster broadcaster;
-    private final AdminHttpService adminService;
-    private final ReloadCfgService reloadService;
+    private final AdminHttpService  adminService;
+    private final ReloadCfgService  reloadService;
+    private final AiWeightRegistry  aiWeightRegistry;
 
     public CoreServiceImpl(SystemInfo cachedSystemInfo,
                            MetricsBroadcaster broadcaster,
                            AdminHttpService adminService,
-                           ReloadCfgService reloadService) {
+                           ReloadCfgService reloadService,
+                           AiWeightRegistry aiWeightRegistry) {
         this.cachedSystemInfo = cachedSystemInfo;
         this.broadcaster      = broadcaster;
         this.adminService     = adminService;
         this.reloadService    = reloadService;
+        this.aiWeightRegistry = aiWeightRegistry;
     }
 
     // ── Static info ───────────────────────────────────────────────────────────
@@ -84,6 +89,27 @@ public class CoreServiceImpl extends CoreServiceGrpc.CoreServiceImplBase {
             log.error("Config reload failed", e);
             respond(responseObserver, false, "Reload failed: " + e.getMessage());
         }
+    }
+
+    // ── AI feedback ──────────────────────────────────────────────────────────
+
+    @Override
+    public void updateWeight(WeightUpdate request, StreamObserver<ControlResponse> responseObserver) {
+        if (request.getChannelName() == null || request.getChannelName().isBlank()) {
+            responseObserver.onError(Status.INVALID_ARGUMENT
+                    .withDescription("channel_name is required").asRuntimeException());
+            return;
+        }
+        LinkedHashMap<String, Integer> weights = new LinkedHashMap<>();
+        for (EndpointWeight ew : request.getWeightsList()) {
+            weights.put(ew.getHashId(), ew.getWeight());
+        }
+        aiWeightRegistry.update(request.getChannelName(), weights);
+        log.info("AI weight update: channel={} reward={} weights={}",
+                request.getChannelName(),
+                String.format("%.4f", request.getReward()),
+                weights);
+        respond(responseObserver, true, "Weight updated: " + request.getChannelName());
     }
 
     // ── Helpers ───────────────────────────────────────────────────────────────

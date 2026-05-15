@@ -15,7 +15,7 @@
         <module>se-proto</module>
         <module>se-core</module>
         <module>se-console</module>
-        <!-- se-ai: added in Phase 3 -->
+        <module>se-ai</module>
     </modules>
 
     <properties>

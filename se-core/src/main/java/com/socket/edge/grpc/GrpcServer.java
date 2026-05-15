@@ -64,8 +64,10 @@ public class GrpcServer {
         broadcaster = new MetricsBroadcaster(osCollector, jvmCollector, channelCollector, intervalMs, nodeId);
         broadcaster.start();
 
+        AiWeightRegistry aiWeightRegistry = new AiWeightRegistry();
+
         CoreServiceImpl coreService = new CoreServiceImpl(
-                systemInfo, broadcaster, adminService, reloadService);
+                systemInfo, broadcaster, adminService, reloadService, aiWeightRegistry);
 
         server = NettyServerBuilder.forPort(port)
                 .addService(coreService)

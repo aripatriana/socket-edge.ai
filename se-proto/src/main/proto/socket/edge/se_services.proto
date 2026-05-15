@@ -6,6 +6,7 @@ import "socket/edge/se_common.proto";
 import "socket/edge/se_os.proto";
 import "socket/edge/se_jvm.proto";
 import "socket/edge/se_channel.proto";
+import "socket/edge/se_ai.proto";
 
 option java_package        = "com.socket.edge.grpc";
 option java_multiple_files = true;
@@ -67,10 +68,9 @@ service CoreService {
 
 
     // ── AI feedback ───────────────────────────────────────────
-    // Called by se-ai after completing LLM analysis.
-    // Delivers weight adjustments and detected anomalies back to se-core.
-    // (message types defined in se_ai.proto — Phase 3)
-    // rpc UpdateWeight(WeightUpdate)   returns (ControlResponse);
-    // rpc ReportAnomaly(AnomalyEvent)  returns (ControlResponse);
+    // Called by se-ai after each LinUCB iteration.
+    // Delivers adaptive weight adjustments back to se-core for
+    // immediate application to the routing strategy.
+    rpc UpdateWeight(WeightUpdate) returns (ControlResponse);
 
 }
