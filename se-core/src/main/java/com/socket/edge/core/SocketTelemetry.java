@@ -33,7 +33,7 @@ public class SocketTelemetry {
     private static final long TPS_WINDOW_MS = 1000;
 
     private final String bindingId;
-    private final String id;
+    private final String socketId;
     private final String name;
     private final String type;
     private AbstractSocket socket;
@@ -89,13 +89,13 @@ public class SocketTelemetry {
         this.se = se;
 
         this.bindingId = bindingId;
-        this.id = socket.getId();
+        this.socketId = socket.getId();
         this.name = socket.getName();
         this.type = socket.getType().name();
 
         Tags tags = Tags.of(
                 "id", bindingId,
-                "socketId", id
+                "socketId", socketId
         );
 
         initMeters(tags);
@@ -150,28 +150,29 @@ public class SocketTelemetry {
 
         /* ===== Gauges ===== */
 
-        registerGauge("socket.queue.depth", queue);
-        registerGauge("socket.pressure.tps.current", pressureTps);
-        registerGauge("socket.throughput.tps.current", throughputTps);
+        registerGauge("socket.queue.depth", queue, tags);
+        registerGauge("socket.pressure.tps.current", pressureTps, tags);
+        registerGauge("socket.throughput.tps.current", throughputTps, tags);
 
-        registerGauge("socket.pressure.tps.min", minPressureTps);
-        registerGauge("socket.pressure.tps.max", maxPressureTps);
+        registerGauge("socket.pressure.tps.min", minPressureTps, tags);
+        registerGauge("socket.pressure.tps.max", maxPressureTps, tags);
 
-        registerGauge("socket.throughput.tps.min", minThroughputTps);
-        registerGauge("socket.throughput.tps.max", maxThroughputTps);
+        registerGauge("socket.throughput.tps.min", minThroughputTps, tags);
+        registerGauge("socket.throughput.tps.max", maxThroughputTps, tags);
 
-        registerGauge("socket.latency.min", minLatency);
-        registerGauge("socket.latency.max", maxLatency);
+        registerGauge("socket.latency.min", minLatency, tags);
+        registerGauge("socket.latency.max", maxLatency, tags);
 
-        registerGauge("socket.last.msg", lastMsg);
-        registerGauge("socket.last.error", lastErr);
-        registerGauge("socket.last.connect", lastConnect);
-        registerGauge("socket.last.disconnect", lastDisconnect);
+        registerGauge("socket.last.msg", lastMsg, tags);
+        registerGauge("socket.last.error", lastErr, tags);
+        registerGauge("socket.last.connect", lastConnect, tags);
+        registerGauge("socket.last.disconnect", lastDisconnect, tags);
     }
 
 
-    private void registerGauge(String name, AtomicLong ref) {
+    private void registerGauge(String name, AtomicLong ref, Tags tags) {
         meters.add(Gauge.builder(name, ref, AtomicLong::get)
+                .tags(tags)
                 .register(registry));
     }
 
@@ -204,7 +205,7 @@ public class SocketTelemetry {
         }
         if (latencyNs > SLOW_THRESHOLD_NS) {
             log.warn("Slow socket {} latency {} ms",
-                    id, latencyNs / 1_000_000d);
+                    socketId, latencyNs / 1_000_000d);
         }
     }
 
@@ -246,7 +247,7 @@ public class SocketTelemetry {
         minLatency.set(Long.MAX_VALUE);
         maxLatency.set(0);
 
-        log.info("SocketTelemetry window metrics reset id={}", id);
+        log.info("SocketTelemetry window metrics reset id={}", socketId);
     }
 
     public void resetTpsBuffers() {
@@ -259,7 +260,7 @@ public class SocketTelemetry {
         pressureTps.set(0);
         throughputTps.set(0);
 
-        log.info("SocketTelemetry TPS counters reset id={}", id);
+        log.info("SocketTelemetry TPS counters reset id={}", socketId);
     }
 
     public synchronized void resetAllMeters() {
@@ -268,15 +269,14 @@ public class SocketTelemetry {
         meters.clear();
 
         Tags tags = Tags.of(
-                "name", name,
-                "id", id,
-                "type", type
+                "id", bindingId,
+                "socketId", socketId
         );
 
         initMeters(tags);
         resetWindowMetrics();
 
-        log.warn("SocketTelemetry FULL meter reset id={}", id);
+        log.warn("SocketTelemetry FULL meter reset id={}", socketId);
     }
 
     private void recordThroughput(long now) {
@@ -353,7 +353,7 @@ public class SocketTelemetry {
         }
 
         return new RuntimeState(bindingId,
-                id,
+                socketId,
                 name,
                 type,
                 localHost,
@@ -368,7 +368,7 @@ public class SocketTelemetry {
 
     public Queue getQueue() {
         return new Queue(bindingId,
-                id,
+                socketId,
                 name,
                 type,
                 (long) msgIn.count(),
@@ -388,7 +388,7 @@ public class SocketTelemetry {
         HistogramSnapshot throughputSnap = throughputSummary.takeSnapshot();
 
         return new Metrics(bindingId,
-                id,
+                socketId,
                 name,
                 type,
 
@@ -422,7 +422,7 @@ public class SocketTelemetry {
         meters.clear();
         socket = null;
 
-        log.info("SocketTelemetry disposed id={}", id);
+        log.info("SocketTelemetry disposed id={}", socketId);
     }
 
     private String extractLocalHost(List<SocketChannel> channels) {
