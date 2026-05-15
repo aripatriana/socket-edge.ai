@@ -9,6 +9,7 @@ import com.socket.edge.model.VersionedCandidates;
 
 import java.util.List;
 import java.util.Objects;
+import java.util.concurrent.CopyOnWriteArrayList;
 
 /**
  * {@code ClientTransport} is a {@link Transport} implementation that
@@ -37,8 +38,11 @@ public final class ClientTransport implements Transport {
 
     /**
      * Collection of client sockets providing channel pools.
+     * Uses {@link CopyOnWriteArrayList} so that {@link #send} can iterate
+     * without locking while {@link #addSocket}/{@link #removeSocket} mutate
+     * the list concurrently (e.g. during a live config reload).
      */
-    private final List<AbstractSocket> sockets;
+    private final CopyOnWriteArrayList<AbstractSocket> sockets;
 
     /**
      * Strategy used to select a {@link SocketChannel}
@@ -57,21 +61,18 @@ public final class ClientTransport implements Transport {
             List<AbstractSocket> sockets,
             SelectionStrategy<SocketChannel> strategy
     ) {
-        this.sockets = sockets;
+        this.sockets = new CopyOnWriteArrayList<>(sockets);
         this.strategy = strategy;
     }
 
     /**
-     * Returns the list of managed client sockets.
+     * Returns an unmodifiable snapshot of the managed client sockets.
+     * Use {@link #addSocket} / {@link #removeSocket} to mutate the list.
      *
-     * <p>
-     * Modifications to the returned list will affect this transport directly.
-     * </p>
-     *
-     * @return list of client sockets
+     * @return unmodifiable view of client sockets
      */
     public List<AbstractSocket> getSockets() {
-        return sockets;
+        return List.copyOf(sockets);
     }
 
     /**
