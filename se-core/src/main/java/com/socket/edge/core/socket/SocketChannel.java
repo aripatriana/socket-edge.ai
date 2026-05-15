@@ -175,22 +175,22 @@ public class SocketChannel implements WeightedCandidate, LoadAware {
     }
 
     public void onMessage() {
-        socketTelemetry.onMessage();
+        if (socketTelemetry != null) socketTelemetry.onMessage();
     }
 
     public void onComplete(long latencyNs) {
-        socketTelemetry.onComplete(latencyNs);
+        if (socketTelemetry != null) socketTelemetry.onComplete(latencyNs);
     }
 
     public void onError() {
-        socketTelemetry.onError();
+        if (socketTelemetry != null) socketTelemetry.onError();
     }
 
     public void onConnect() {
-        socketTelemetry.onConnect();
+        if (socketTelemetry != null) socketTelemetry.onConnect();
     }
 
     public void onDisconnect() {
-        socketTelemetry.onDisconnect();
+        if (socketTelemetry != null) socketTelemetry.onDisconnect();
     }
 }
