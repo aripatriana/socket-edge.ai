@@ -3,7 +3,6 @@ package com.socket.edge.core.transport;
 import com.socket.edge.core.AiWeightRegistry;
 import com.socket.edge.core.socket.AbstractSocket;
 import com.socket.edge.core.socket.SocketChannel;
-import com.socket.edge.core.strategy.AdaptiveStrategy;
 import com.socket.edge.core.strategy.SelectionFactory;
 import com.socket.edge.core.strategy.SelectionStrategy;
 import com.socket.edge.model.ChannelCfg;
@@ -89,7 +88,8 @@ public class TransportRegister {
         Objects.requireNonNull(socket, "socket must not be null");
 
         String key = key(socket.getType(), cfg.name());
-        SelectionStrategy<SocketChannel> strategy = createStrategy(cfg);
+        SelectionStrategy<SocketChannel> strategy =
+                SelectionFactory.create(cfg.client().strategy(), cfg.name(), aiWeightRegistry, null);
 
         boolean registered = transportProvider.registerIfAbsent(
                 key,
@@ -130,7 +130,8 @@ public class TransportRegister {
         }
 
         String key = key(clientSockets.get(0).getType(), cfg.name());
-        SelectionStrategy<SocketChannel> strategy = createStrategy(cfg);
+        SelectionStrategy<SocketChannel> strategy =
+                SelectionFactory.create(cfg.client().strategy(), cfg.name(), aiWeightRegistry, null);
 
         boolean registered = transportProvider.registerIfAbsent(
                 key,
@@ -233,22 +234,6 @@ public class TransportRegister {
         transportProvider.destroy();
     }
 
-    /**
-     * Creates a {@link SelectionStrategy} for the channel.
-     *
-     * <p>When the configured strategy is {@code "adaptive"} and an
-     * {@link AiWeightRegistry} is available, returns an {@link AdaptiveStrategy}.
-     * Otherwise delegates to {@link SelectionFactory}.
-     */
-    @SuppressWarnings({"unchecked", "rawtypes"})
-    private SelectionStrategy<SocketChannel> createStrategy(ChannelCfg cfg) {
-        String name = cfg.client().strategy();
-        if ("adaptive".equalsIgnoreCase(name) && aiWeightRegistry != null) {
-            return new AdaptiveStrategy(cfg.name(), aiWeightRegistry);
-        }
-        SelectionStrategy raw = SelectionFactory.create(name, null);
-        return raw;
-    }
 
     /**
      * Builds a transport key using socket type and channel name.

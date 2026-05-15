@@ -1,7 +1,9 @@
 package com.socket.edge.core.strategy;
 
+import com.socket.edge.core.AiWeightRegistry;
 import com.socket.edge.core.LoadAware;
 import com.socket.edge.core.MessageContext;
+import com.socket.edge.core.socket.SocketChannel;
 
 import java.util.function.Function;
 
@@ -71,6 +73,18 @@ public class SelectionFactory {
     }
 
     /**
+     * Creates an adaptive selection strategy driven by AI weights from
+     * {@link AiWeightRegistry}.
+     *
+     * @param channelName  channel name used to look up weights in the registry
+     * @param registry     AI weight registry
+     * @return adaptive selection strategy
+     */
+    public static SelectionStrategy<SocketChannel> adaptive(String channelName, AiWeightRegistry registry) {
+        return new AdaptiveStrategy(channelName, registry);
+    }
+
+    /**
      * Creates a {@link SelectionStrategy} based on the given strategy name.
      *
      * <p>
@@ -86,7 +100,7 @@ public class SelectionFactory {
      * Strategy name comparison is case-insensitive.
      * </p>
      *
-     * @param strategy strategy identifier
+     * @param strategy     strategy identifier
      * @param keyExtractor function to extract hash key
      *                     (required for {@code "hash"} strategy)
      * @param <T> candidate type
@@ -98,11 +112,42 @@ public class SelectionFactory {
 
         return switch (strategy.toLowerCase()) {
             case "roundrobin" -> (SelectionStrategy<T>) roundRobin();
-            case "least" -> (SelectionStrategy<T>) leastConnection();
-            case "hash" -> hash(keyExtractor);
+            case "least"      -> (SelectionStrategy<T>) leastConnection();
+            case "hash"       -> hash(keyExtractor);
             default -> throw new IllegalArgumentException(
                     "Unknown strategy: " + strategy
             );
         };
+    }
+
+    /**
+     * Overload of {@link #create(String, Function)} that additionally supports
+     * {@code "adaptive"}.
+     *
+     * <p>When {@code strategy} is {@code "adaptive"} and {@code registry} is
+     * non-null, returns an {@link AdaptiveStrategy} for the given channel.
+     * If {@code registry} is {@code null} (e.g. gRPC server not wired), falls
+     * back to round-robin so the system stays operational.
+     *
+     * @param strategy     strategy identifier
+     * @param channelName  channel name (required for {@code "adaptive"})
+     * @param registry     AI weight registry (required for {@code "adaptive"})
+     * @param keyExtractor function to extract hash key (required for {@code "hash"})
+     * @param <T> candidate type
+     * @return selection strategy instance
+     * @throws IllegalArgumentException if strategy is unknown
+     */
+    @SuppressWarnings("unchecked")
+    public static <T> SelectionStrategy<T> create(String strategy,
+                                                   String channelName,
+                                                   AiWeightRegistry registry,
+                                                   Function<MessageContext, String> keyExtractor) {
+        if ("adaptive".equalsIgnoreCase(strategy)) {
+            if (registry != null) {
+                return (SelectionStrategy<T>) adaptive(channelName, registry);
+            }
+            return (SelectionStrategy<T>) roundRobin();
+        }
+        return create(strategy, keyExtractor);
     }
 }
