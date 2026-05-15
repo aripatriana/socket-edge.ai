@@ -82,10 +82,13 @@ public class SocketChannelPooling {
      *         {@code false} otherwise
      */
     public boolean addChannel(Channel ch) {
-        String remoteIp =
-                ((InetSocketAddress) ch.remoteAddress())
-                        .getAddress()
-                        .getHostAddress();
+        InetSocketAddress remote = (InetSocketAddress) ch.remoteAddress();
+        if (remote == null) {
+            ch.close();
+            return false;
+        }
+
+        String remoteIp = remote.getAddress().getHostAddress();
 
         if (!abstractSocket.allowlist().isEmpty()
                 && abstractSocket.allowlist().stream()
@@ -95,9 +98,7 @@ public class SocketChannelPooling {
             return false;
         }
 
-        int remotePort =
-                ((InetSocketAddress) ch.remoteAddress())
-                        .getPort();
+        int remotePort = remote.getPort();
 
         SocketEndpoint se = abstractSocket.resolveEndpoint(remoteIp, remotePort);
         if (se == null) {
@@ -169,8 +170,10 @@ public class SocketChannelPooling {
             if (set.isEmpty()) {
                 endpointIndex.remove(key);
             }
-            updateVersion();
         }
+
+        // Always update version: activeChannels changed regardless of endpointIndex state
+        updateVersion();
     }
 
     /**
@@ -200,7 +203,8 @@ public class SocketChannelPooling {
      * @return set of socket channels
      */
     public Set<SocketChannel> getAllByEndpoint(SocketEndpoint se) {
-        return endpointIndex.getOrDefault(EndpointKey.from(se), Set.of());
+        Set<SocketChannel> set = endpointIndex.get(EndpointKey.from(se));
+        return set != null ? Set.copyOf(set) : Set.of();
     }
 
     /**
@@ -234,8 +238,14 @@ public class SocketChannelPooling {
      */
     public void closeAll() {
         activeChannels.values().forEach(ch -> {
-            if (ch.isActive()) {
-                ch.close();
+            try {
+                if (ch.isActive()) {
+                    ch.close();
+                }
+            } catch (Exception e) {
+                // log and continue — all channels must be attempted
+                org.slf4j.LoggerFactory.getLogger(SocketChannelPooling.class)
+                        .error("Error closing channel {}", ch.channelId(), e);
             }
         });
 
