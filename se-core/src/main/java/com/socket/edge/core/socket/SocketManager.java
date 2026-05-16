@@ -87,7 +87,10 @@ public class SocketManager {
      * Creates and registers a single client socket into an existing channel group.
      */
     public AbstractSocket createClientSocket(ChannelCfg cfg, SocketEndpoint se) {
-        if (cfg.client() == null || se == null) return null;
+        if (cfg.client() == null || se == null) {
+            log.warn("Skip createClientSocket: client config or endpoint is null");
+            return null;
+        }
 
         AbstractSocket client = socketFactory.createClient(cfg, se);
         AbstractSocket existing = sockets.putIfAbsent(client.getId(), client);

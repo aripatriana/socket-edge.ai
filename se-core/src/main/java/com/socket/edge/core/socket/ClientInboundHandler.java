@@ -86,7 +86,7 @@ public final class ClientInboundHandler extends ChannelInboundHandlerAdapter {
 
             messageContextProcess.process(msgCtx);
         } catch (Exception e) {
-            log.error("{} error read message: {}", clientSocket.getId(), e.getMessage());
+            log.error("{} error read message", clientSocket.getId(), e);
             socketChannel.onError();
         }
     }
@@ -118,7 +118,7 @@ public final class ClientInboundHandler extends ChannelInboundHandlerAdapter {
 
     @Override
     public void exceptionCaught(ChannelHandlerContext ctx, Throwable cause) {
-        log.error("{} exception occurred: {}", clientSocket.getId(), cause.getMessage());
+        log.error("{} exception occurred", clientSocket.getId(), cause);
         ctx.close();
     }
 }

@@ -138,12 +138,12 @@ public class SocketChannel implements WeightedCandidate, LoadAware {
         return now >= unhealthyUntil && channel.isActive();
     }
 
-    public void markSuccess() {
+    public synchronized void markSuccess() {
         failCount.set(0);
         unhealthyUntil = 0L;
     }
 
-    public void markFailure(long now) {
+    public synchronized void markFailure(long now) {
         int fails = failCount.incrementAndGet();
 
         if (fails >= maxFails) {
