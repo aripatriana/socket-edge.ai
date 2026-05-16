@@ -2,11 +2,12 @@ package com.socket.edge.simulator;
 
 import com.socket.edge.utils.ByteDecoder;
 import com.socket.edge.utils.ByteEncoder;
-import io.netty.bootstrap.Bootstrap;
+import io.netty.bootstrap.ServerBootstrap;
 import io.netty.buffer.Unpooled;
 import io.netty.channel.*;
 import io.netty.channel.nio.NioEventLoopGroup;
-import io.netty.channel.socket.nio.NioSocketChannel;
+import io.netty.channel.socket.SocketChannel;
+import io.netty.channel.socket.nio.NioServerSocketChannel;
 import io.netty.handler.codec.LengthFieldBasedFrameDecoder;
 import io.netty.handler.codec.LengthFieldPrepender;
 
@@ -14,80 +15,84 @@ import java.io.BufferedReader;
 import java.io.InputStreamReader;
 import java.nio.charset.StandardCharsets;
 
-public class SimpleNettyClient {
+public class SimpleNettyServer {
 
     private String node;
 
-    public SimpleNettyClient(String node) {
+    public SimpleNettyServer(String node) {
         this.node = node;
     }
 
-    public void start(String host, int port) throws Exception {
+    public void start(int port) throws Exception {
 
-        EventLoopGroup group = new NioEventLoopGroup();
+        EventLoopGroup boss = new NioEventLoopGroup(1);
+        EventLoopGroup worker = new NioEventLoopGroup();
 
         try {
-            Bootstrap b = new Bootstrap();
+            ServerBootstrap b = new ServerBootstrap();
 
-            b.group(group)
-                    .channel(NioSocketChannel.class)
+            b.group(boss, worker)
+                    .channel(NioServerSocketChannel.class)
+                    .option(ChannelOption.SO_REUSEADDR, true)
                     .option(ChannelOption.SO_KEEPALIVE, true)
-                    .handler(new ChannelInitializer<Channel>() {
+                    .childHandler(new ChannelInitializer<SocketChannel>() {
                         @Override
-                        protected void initChannel(Channel ch) {
+                        protected void initChannel(SocketChannel ch) {
                             ch.pipeline().addLast(new SimpleChannelAdapter());
-                            ch.pipeline().addLast(new LengthFieldBasedFrameDecoder(Integer.MAX_VALUE,0, 2,0,2));
+                            ch.pipeline().addLast(new LengthFieldBasedFrameDecoder(Integer.MAX_VALUE, 0,2, 0, 2));
                             ch.pipeline().addLast(new ByteDecoder());
-                            ch.pipeline().addLast(new SimpleClientHandler(node));
+                            ch.pipeline().addLast(new SimpleServerHandler());
                             ch.pipeline().addLast(new ByteEncoder());
                             ch.pipeline().addLast(new LengthFieldPrepender(2));
                         }
                     });
 
-            Channel ch = b.connect(host, port).sync().channel();
-            System.out.println("[Member-" + node + "] connected to " + host + ":" + port);
+            ChannelFuture f = b.bind(port).sync();
+            System.out.println("[Server-A] listening on " + port);
             System.out.println("Type message and press ENTER (type 'exit' to quit)");
 
             BufferedReader reader =
                     new BufferedReader(new InputStreamReader(System.in));
-
             String line;
             while ((line = reader.readLine()) != null) {
 
                 if ("exit".equalsIgnoreCase(line)) {
-                    System.out.println("[Member-" + node + "] closing connection");
-                    ch.close();
+                    System.out.println("[Server-" + node + "] closing connection");
+                    for (Channel ch : SimpleChannelAdapter.channels()) {
+                        ch.close();
+                    }
                     break;
                 }
 
-                ch.writeAndFlush(
-                        Unpooled.copiedBuffer(line, StandardCharsets.US_ASCII)
-                );
+                if (SimpleChannelAdapter.channels.isEmpty()) {
+                    System.out.println("No channel active");
+                } else {
+                    for (Channel ch : SimpleChannelAdapter.channels()) {
+                        ch.writeAndFlush(
+                                Unpooled.copiedBuffer(line, StandardCharsets.US_ASCII)
+                        );
+                    }
+                    ;
 
-
-                System.out.println("[Member-" + node + "] send " + line);
-                System.out.println("------------------------------------------");
+                    System.out.println("[Server-" + node + "] send " + line);
+                    System.out.println("------------------------------------------");
+                }
             }
 
-            ch.closeFuture().sync();
+            f.channel().closeFuture().sync();
             System.out.println("Close");
         } finally {
-            group.shutdownGracefully();
+            boss.shutdownGracefully();
+            worker.shutdownGracefully();
         }
     }
 
-    static class SimpleClientHandler extends SimpleChannelInboundHandler<byte[]> {
-
-        private String node;
-
-        public SimpleClientHandler(String node) {
-            this.node = node;
-        }
+    static class SimpleServerHandler extends SimpleChannelInboundHandler<byte[]> {
 
         @Override
         protected void channelRead0(ChannelHandlerContext ctx, byte[] msg) {
             String data = new String(msg);
-            System.out.println("[Member-" + node + "] received: " + data);
+            System.out.println("[Backend-Server-A] received: " + data);
             System.out.println("------------------------------------------");
 
             if (data.startsWith("0200")) {
