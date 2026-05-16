@@ -67,6 +67,12 @@ service CoreService {
     rpc ReloadConfig(Empty)           returns (ControlResponse);
 
 
+    // ── Static config ─────────────────────────────────────────
+    // Called by se-console on connect and after ReloadConfig.
+    // Returns the live channel configuration from ChannelGroupRegistry.
+    rpc GetChannelConfigs(Empty) returns (ChannelConfigList);
+
+
     // ── AI feedback ───────────────────────────────────────────
     // Called by se-ai after each LinUCB iteration.
     // Delivers adaptive weight adjustments back to se-core for

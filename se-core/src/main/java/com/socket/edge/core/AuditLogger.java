@@ -86,7 +86,7 @@ public class AuditLogger {
                         ctx.getDirection() != null ? ctx.getDirection().name() : null);
                 case "timestamp"       -> entry.put("timestamp", Instant.now().toString());
                 case "latency-ns"      -> {
-                    Object receivedTime = ctx.getProperty("receivedTimeNs");
+                    Object receivedTime = ctx.getProperty("received_time_ns");
                     if (receivedTime instanceof Long startNs) {
                         entry.put("latencyNs", System.nanoTime() - startNs);
                     }

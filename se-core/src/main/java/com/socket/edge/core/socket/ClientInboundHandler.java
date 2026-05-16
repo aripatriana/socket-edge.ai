@@ -81,7 +81,7 @@ public final class ClientInboundHandler extends ChannelInboundHandlerAdapter {
             msgCtx.setRemoteAddress((InetSocketAddress) ctx.channel().remoteAddress());
             msgCtx.setInboundType(SocketType.CLIENT);
             msgCtx.setOutboundType(SocketType.SERVER);
-            msgCtx.addProperty("receivedTimeNs", start);
+            msgCtx.addProperty("received_time_ns", start);
             msgCtx.setSocketChannel(socketChannel);
 
             messageContextProcess.process(msgCtx);

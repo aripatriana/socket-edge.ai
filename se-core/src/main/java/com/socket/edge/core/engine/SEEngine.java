@@ -185,7 +185,7 @@ public class SEEngine extends RouteBuilder {
 
                     transport.send(ctx);
 
-                    long latencyNs = System.nanoTime() - (long) ctx.getProperty("receivedTimeNs");
+                    long latencyNs = System.nanoTime() - (long) ctx.getProperty("received_time_ns");
                     ctx.getSocketChannel().onComplete(latencyNs);
 
                     // Audit trail
@@ -232,7 +232,7 @@ public class SEEngine extends RouteBuilder {
                             }
                         }
 
-                        long latencyNs = System.nanoTime() - (long) ctx.getProperty("receivedTimeNs");
+                        long latencyNs = System.nanoTime() - (long) ctx.getProperty("received_time_ns");
                         ctx.getSocketChannel().onComplete(latencyNs);
 
                         // Audit trail

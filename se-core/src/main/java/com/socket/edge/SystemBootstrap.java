@@ -226,7 +226,7 @@ public class SystemBootstrap {
         handleHttpServer(channelCfgProcessor, telemetryRegistry, socketManager);
 
         // 17. gRPC server — metrics streaming + control via gRPC
-        handleGrpcServer(telemetryRegistry);
+        handleGrpcServer(telemetryRegistry, groupRegistry);
 
         // 18. Shutdown hook — with drain timeout
         handleLifecycle();
@@ -301,10 +301,12 @@ public class SystemBootstrap {
         clusterManager.start();
     }
 
-    private void handleGrpcServer(TelemetryRegistry telemetryRegistry) throws Exception {
+    private void handleGrpcServer(TelemetryRegistry telemetryRegistry,
+                                  ChannelGroupRegistry groupRegistry) throws Exception {
         int  port       = Integer.parseInt(System.getProperty("grpc.port", "9090"));
         long intervalMs = Long.parseLong(System.getProperty("grpc.metrics.interval.ms", "2000"));
-        grpcServer = new GrpcServer(adminHttpService, reloadCfgService, telemetryRegistry, this.aiWeightRegistry);
+        grpcServer = new GrpcServer(adminHttpService, reloadCfgService, telemetryRegistry,
+                this.aiWeightRegistry, groupRegistry);
         grpcServer.start(port, intervalMs);
     }
 

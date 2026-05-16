@@ -2,7 +2,6 @@ package id.co.jalin.seconsole.engine;
 
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import id.co.jalin.seconsole.engine.model.ChannelCfg;
 import id.co.jalin.seconsole.engine.model.ChannelSnapshot;
 import id.co.jalin.seconsole.engine.model.EngineHealth;
 import id.co.jalin.seconsole.engine.model.JvmSnapshot;
@@ -19,7 +18,6 @@ import org.springframework.web.client.RestClientException;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.util.Base64;
-import java.util.Collections;
 import java.util.List;
 
 /**
@@ -75,13 +73,6 @@ public class EngineClient {
      */
     public ChannelSnapshot getChannelSnapshot() {
         return getJsonRaw("/socket/snapshot/channels", ChannelSnapshot.class);
-    }
-
-    public List<ChannelCfg> getChannels() {
-        List<ChannelCfg> out = getJsonUnwrapped(
-                "/config/channels",
-                new TypeReference<EngineResponse<List<ChannelCfg>>>() {});
-        return out == null ? Collections.emptyList() : out;
     }
 
     /**

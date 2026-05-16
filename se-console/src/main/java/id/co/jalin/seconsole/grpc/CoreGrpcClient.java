@@ -1,6 +1,8 @@
 package id.co.jalin.seconsole.grpc;
 
+import com.socket.edge.grpc.ChannelConfigList;
 import com.socket.edge.grpc.CoreServiceGrpc;
+import com.socket.edge.grpc.Empty;
 import io.grpc.ManagedChannel;
 import io.grpc.netty.shaded.io.grpc.netty.NettyChannelBuilder;
 import jakarta.annotation.PreDestroy;
@@ -46,6 +48,13 @@ public class CoreGrpcClient {
     /** Blocking stub — used for unary RPCs (GetSystemInfo, control commands). */
     public CoreServiceGrpc.CoreServiceBlockingStub blockingStub() {
         return CoreServiceGrpc.newBlockingStub(channel);
+    }
+
+    /** Fetch live channel configuration from se-core. */
+    public ChannelConfigList getChannelConfigs() {
+        return blockingStub()
+                .withDeadlineAfter(5, TimeUnit.SECONDS)
+                .getChannelConfigs(Empty.getDefaultInstance());
     }
 
     @PreDestroy

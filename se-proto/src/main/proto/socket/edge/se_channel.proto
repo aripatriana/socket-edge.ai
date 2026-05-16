@@ -109,3 +109,42 @@ message ChannelSnapshot {
     repeated SocketSnapshot  sockets   = 2;
     ChannelAggregate         aggregate = 3;
 }
+
+
+// ── Static channel configuration ─────────────────────────────
+// Returned by GetChannelConfigs() unary RPC.
+// Config is static — fetched once on connect, refreshed after reload.
+
+message SocketEndpointConfig {
+    string host         = 1;
+    int32  port         = 2;
+    int32  weight       = 3;
+    int32  priority     = 4;
+    int32  maxfails     = 5;
+    int32  fail_timeout = 6;
+}
+
+message ServerChannelConfig {
+    string                        listen_host = 1;
+    int32                         listen_port = 2;
+    repeated SocketEndpointConfig pool        = 3;
+    string                        strategy    = 4;
+}
+
+message ClientChannelConfig {
+    repeated SocketEndpointConfig endpoints = 1;
+    string                        strategy  = 2;
+}
+
+message ChannelConfig {
+    string              name        = 1;
+    string              type        = 2;
+    ServerChannelConfig server      = 3;
+    ClientChannelConfig client      = 4;
+    repeated string     profiles    = 5;
+    string              unknown_mti = 6;
+}
+
+message ChannelConfigList {
+    repeated ChannelConfig channels = 1;
+}

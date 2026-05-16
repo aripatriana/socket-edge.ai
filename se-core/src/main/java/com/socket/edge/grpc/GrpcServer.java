@@ -2,6 +2,7 @@ package com.socket.edge.grpc;
 
 import com.socket.edge.core.AiWeightRegistry;
 import com.socket.edge.core.TelemetryRegistry;
+import com.socket.edge.core.socket.ChannelGroupRegistry;
 import com.socket.edge.grpc.channel.ChannelSnapshotCollector;
 import com.socket.edge.grpc.jvm.JvmMetricsCollector;
 import com.socket.edge.grpc.os.OsMetricsCollector;
@@ -35,10 +36,11 @@ public class GrpcServer {
 
     private static final Logger log = LoggerFactory.getLogger(GrpcServer.class);
 
-    private final AdminHttpService  adminService;
-    private final ReloadCfgService  reloadService;
-    private final TelemetryRegistry telemetryRegistry;
-    private final AiWeightRegistry  aiWeightRegistry;
+    private final AdminHttpService    adminService;
+    private final ReloadCfgService    reloadService;
+    private final TelemetryRegistry   telemetryRegistry;
+    private final AiWeightRegistry    aiWeightRegistry;
+    private final ChannelGroupRegistry groupRegistry;
 
     private Server             server;
     private MetricsBroadcaster broadcaster;
@@ -46,11 +48,13 @@ public class GrpcServer {
     public GrpcServer(AdminHttpService adminService,
                       ReloadCfgService reloadService,
                       TelemetryRegistry telemetryRegistry,
-                      AiWeightRegistry aiWeightRegistry) {
+                      AiWeightRegistry aiWeightRegistry,
+                      ChannelGroupRegistry groupRegistry) {
         this.adminService      = adminService;
         this.reloadService     = reloadService;
         this.telemetryRegistry = telemetryRegistry;
         this.aiWeightRegistry  = aiWeightRegistry;
+        this.groupRegistry     = groupRegistry;
     }
 
     public void start(int port, long intervalMs) throws IOException {
@@ -69,7 +73,7 @@ public class GrpcServer {
         broadcaster.start();
 
         CoreServiceImpl coreService = new CoreServiceImpl(
-                systemInfo, broadcaster, adminService, reloadService, aiWeightRegistry);
+                systemInfo, broadcaster, adminService, reloadService, aiWeightRegistry, groupRegistry);
 
         server = NettyServerBuilder.forPort(port)
                 .addService(coreService)
