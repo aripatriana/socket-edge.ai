@@ -122,8 +122,7 @@ public class SocketLifecycleCoordinator {
             return;
         }
 
-        if (server.getState() == SocketState.ACTIVE) {
-            server.changeState(SocketState.LISTEN);
+        if (server.compareAndSetState(SocketState.ACTIVE, SocketState.LISTEN)) {
             log.info("{} state => LISTEN (no active channels)", server.getId());
 
             group.clients().forEach(client -> {
@@ -168,8 +167,7 @@ public class SocketLifecycleCoordinator {
     }
 
     private void activateServerIfNeeded(DefaultServerSocket server) {
-        if (server.getState() == SocketState.LISTEN) {
-            server.changeState(SocketState.ACTIVE);
+        if (server.compareAndSetState(SocketState.LISTEN, SocketState.ACTIVE)) {
             log.info("{} state => ACTIVE", server.getId());
         }
     }

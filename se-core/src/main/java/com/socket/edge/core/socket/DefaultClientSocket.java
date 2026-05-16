@@ -28,6 +28,7 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicReference;
 
 /**
  * Client-side TCP socket using Netty.
@@ -42,7 +43,7 @@ public class DefaultClientSocket extends AbstractSocket {
     private static final Logger log = LoggerFactory.getLogger(DefaultClientSocket.class);
     private static final int MAX_BACKOFF_SECONDS = 30;
 
-    private volatile SocketState socketState = SocketState.DOWN;
+    private final AtomicReference<SocketState> socketState = new AtomicReference<>(SocketState.DOWN);
     private final String host;
     private final int port;
     private Channel channel;
@@ -51,7 +52,7 @@ public class DefaultClientSocket extends AbstractSocket {
     private Bootstrap bootstrap;
     private final AtomicBoolean reconnecting = new AtomicBoolean(false);
     private volatile boolean running = false;
-    private int retryCount = 0;
+    private volatile int retryCount = 0;
 
     private final SystemConfig.TcpConfig tcpConfig;
     private final SocketLifecycleCoordinator coordinator;
@@ -135,9 +136,9 @@ public class DefaultClientSocket extends AbstractSocket {
         if (!isCluster() || getRole() == NodeRole.MASTER) {
             running = true;
             startTime = System.currentTimeMillis();
-            socketState = SocketState.WAIT;
+            socketState.set(SocketState.WAIT);
         } else {
-            socketState = SocketState.STANDBY;
+            socketState.set(SocketState.STANDBY);
             log.info("{} started in standby mode", getId());
         }
     }
@@ -262,9 +263,12 @@ public class DefaultClientSocket extends AbstractSocket {
     }
 
     @Override public SocketType getType() { return type; }
-    @Override public SocketState getState() { return socketState; }
+    @Override public SocketState getState() { return socketState.get(); }
     @Override public SocketChannelPooling channelPool() { return channelPool; }
-    public void changeState(SocketState s) { this.socketState = s; }
+    public void changeState(SocketState s) { socketState.set(s); }
+    public boolean compareAndSetState(SocketState expected, SocketState next) {
+        return socketState.compareAndSet(expected, next);
+    }
 
     static class IdleCloseHandler extends ChannelInboundHandlerAdapter {
         private final DefaultClientSocket socket;

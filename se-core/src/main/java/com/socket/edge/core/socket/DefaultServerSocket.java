@@ -25,6 +25,7 @@ import org.slf4j.LoggerFactory;
 
 import java.util.List;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicReference;
 
 /**
  * Server-side TCP socket using Netty.
@@ -40,7 +41,7 @@ public class DefaultServerSocket extends AbstractSocket {
 
     private static final Logger log = LoggerFactory.getLogger(DefaultServerSocket.class);
 
-    private volatile SocketState socketState = SocketState.DOWN;
+    private final AtomicReference<SocketState> socketState = new AtomicReference<>(SocketState.DOWN);
     private final int port;
     private EventLoopGroup boss;
     private EventLoopGroup worker;
@@ -203,8 +204,11 @@ public class DefaultServerSocket extends AbstractSocket {
     public Channel getServerChannel() { return serverChannel; }
     @Override public SocketChannelPooling channelPool() { return channelPool; }
     @Override public SocketType getType() { return type; }
-    @Override public SocketState getState() { return socketState; }
-    public void changeState(SocketState s) { this.socketState = s; }
+    @Override public SocketState getState() { return socketState.get(); }
+    public void changeState(SocketState s) { socketState.set(s); }
+    public boolean compareAndSetState(SocketState expected, SocketState next) {
+        return socketState.compareAndSet(expected, next);
+    }
 
     /**
      * Closes channels that have been idle beyond the configured timeout.
