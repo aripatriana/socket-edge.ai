@@ -11,6 +11,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.util.Collection;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -62,27 +63,27 @@ public abstract class AbstractSocket {
     /**
      * Logical socket identifier.
      */
-    String id;
+    protected String id;
 
     /**
      * Human-readable socket name.
      */
-    String name;
+    protected String name;
 
     /**
      * Socket bind or remote host.
      */
-    String host;
+    protected String host;
 
     /**
      * Socket bind or remote port.
      */
-    int port;
+    protected int port;
 
     /**
      * Socket start timestamp.
      */
-    long startTime;
+    protected long startTime;
 
     /**
      * Indicates whether this socket runs in cluster mode.
@@ -223,10 +224,13 @@ public abstract class AbstractSocket {
      * @throws InterruptedException if shutdown is interrupted
      */
     public void shutdown() throws InterruptedException {
-        telemetryRegistry.unregister(this);
-        telemetryMap.values().forEach(SocketTelemetry::dispose);
-        telemetryMap.clear();
-        endpointMap.clear();
+        try {
+            // unregister also calls dispose() on each SocketTelemetry — no need to repeat it
+            telemetryRegistry.unregister(this);
+        } finally {
+            telemetryMap.clear();
+            endpointMap.clear();
+        }
     }
 
     /**
@@ -316,7 +320,7 @@ public abstract class AbstractSocket {
      * @return collection of endpoints
      */
     public Collection<SocketEndpoint> allowlist() {
-        return endpointMap.values();
+        return List.copyOf(endpointMap.values());
     }
 
     /**

@@ -34,7 +34,7 @@ import java.util.concurrent.ConcurrentHashMap;
  * <p>Thread-safe: both maps are {@link ConcurrentHashMap}; the name-index
  * set is created with {@link ConcurrentHashMap#newKeySet()}.
  *
- *  imp@author Ari Patriana
+ *  @author Ari Patriana
  *  @since 1.0.0
  */
 public class TelemetryRegistry {
