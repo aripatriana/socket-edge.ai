@@ -137,9 +137,9 @@ function SocketRow({
         </Td>
         <Td className={`text-right ${valueToneClass(socket.queue.errCount, /*warn*/ true)}`}>
           {formatNumber(socket.queue.errCount)}
-          {socket.metrics.latency.maxNs > 0 && (
+          {socket.metrics.latency.max > 0 && (
             <span className="ml-2 text-muted-foreground text-[10px]">
-              · {formatLatency(socket.metrics.latency.avgNs)} avg
+              · {formatLatency(socket.metrics.latency.avg)} avg
             </span>
           )}
         </Td>

@@ -50,8 +50,8 @@ export function ChannelCard({ channel, expanded, onToggle }: Props) {
         <div className="flex-1" />
         <div className="hidden md:flex items-center gap-5 font-mono text-[12px]">
           <Kpi label="TPS"       value={formatNumber(channel.aggregate.throughputTps.totalAvg)} tone={valueToneClass(channel.aggregate.throughputTps.totalAvg)} />
-          <Kpi label="avg"       value={formatLatency(channel.aggregate.latency.maxAvgNs)}      tone="text-foreground" />
-          <Kpi label="max"       value={formatLatency(channel.aggregate.latency.maxMaxNs)}      tone="text-foreground" />
+          <Kpi label="avg"       value={formatLatency(channel.aggregate.latency.maxAvg)}      tone="text-foreground" />
+          <Kpi label="max"       value={formatLatency(channel.aggregate.latency.maxMax)}      tone="text-foreground" />
           <Kpi label="in-flight" value={formatNumber(channel.aggregate.totalInFlight)}          tone={valueToneClass(channel.aggregate.totalInFlight)} />
           <Kpi label="errors"    value={formatNumber(channel.aggregate.totalErrCnt)}            tone={valueToneClass(channel.aggregate.totalErrCnt, /*warn*/ true)} />
         </div>

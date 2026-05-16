@@ -58,8 +58,8 @@ export function MetricsTab({ channelName, channel }: Props) {
         />
         <KpiCard
           label="LATENCY"
-          primary={`avg ${formatLatency(channel.aggregate.latency.maxAvgNs)}`}
-          secondary={`max ${formatLatency(channel.aggregate.latency.maxMaxNs)}`}
+          primary={`avg ${formatLatency(channel.aggregate.latency.maxAvg)}`}
+          secondary={`max ${formatLatency(channel.aggregate.latency.maxMax)}`}
         />
         <KpiCard
           label="MESSAGE IN"

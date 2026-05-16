@@ -42,11 +42,11 @@ export interface SocketQueue {
 }
 
 export interface LatencyDistribution {
-  avgNs: number;
-  minNs: number;
-  maxNs: number;
-  p90Ns: number;
-  p95Ns: number;
+  avg: number;
+  min: number;
+  max: number;
+  p90: number;
+  p95: number;
 }
 
 /** avg replaces the spec's `current` — same shape for pressure and throughput. */
@@ -78,9 +78,9 @@ export interface SocketSummary {
 
 export interface ChannelLatencyAggregate {
   /** Worst-of across sockets — one hot socket is the actionable signal. */
-  maxAvgNs: number;
-  maxMaxNs: number;
-  maxP95Ns: number;
+  maxAvg: number;
+  maxMax: number;
+  maxP95: number;
 }
 
 export interface ChannelTpsAggregate {

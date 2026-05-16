@@ -442,11 +442,11 @@ function pick(p: HistorySample, metric: MetricKey, agg: AggregationKey): number 
   }
   // latency
   switch (agg) {
-    case 'avg': return p.latency.avgNs;
-    case 'min': return p.latency.minNs;
-    case 'max': return p.latency.maxNs;
-    case 'p90': return p.latency.p90Ns;
-    case 'p95': return p.latency.p95Ns;
+    case 'avg': return p.latency.avg;
+    case 'min': return p.latency.min;
+    case 'max': return p.latency.max;
+    case 'p90': return p.latency.p90;
+    case 'p95': return p.latency.p95;
   }
   // Unreachable — AggregationKey is exhaustive above — but TS needs it.
   return 0;
