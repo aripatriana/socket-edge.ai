@@ -28,7 +28,7 @@ export function ChannelCard({ channel, expanded, onToggle }: Props) {
   const badge = channelStateBadge(channel.aggregateState);
   const Chevron = expanded ? ChevronDown : ChevronRight;
 
-  const openDetails = () => navigate(`/channels/${encodeURIComponent(channel.name)}`);
+  const openDetails = () => navigate(`/channels/${encodeURIComponent(channel.name)}/overview`);
 
   return (
     <div className="rounded-md border border-border bg-card overflow-hidden">
@@ -144,9 +144,6 @@ function EmptyNote({ children }: { children: React.ReactNode }) {
 
 function SocketRow({ socket, isLast }: { socket: SocketSummary; isLast: boolean }) {
   const rt = socket.runtime;
-  const statusUpper = (rt.state ?? '').toUpperCase();
-  const isUp = statusUpper === 'ACTIVE' || statusUpper === 'LISTEN';
-  const upLabel = isUp ? 'UP' : 'DOWN';
   const connIsNewer = rt.lastConnect >= rt.lastDisconnect;
   const lastLabel = connIsNewer ? 'last_conn' : 'last_dc';
   const lastValue = connIsNewer ? rt.lastConnect : rt.lastDisconnect;
@@ -156,7 +153,7 @@ function SocketRow({ socket, isLast }: { socket: SocketSummary; isLast: boolean 
       <div className="flex items-center gap-2 font-mono text-[11px]">
         <span className={`w-1.5 h-1.5 rounded-full ${socketStatusDotClass(rt.state)}`} />
         <span className="truncate text-foreground">{socket.socketId}</span>
-        <span className={`text-[10px] font-semibold ${socketStatusTextClass(rt.state)}`}>{upLabel}</span>
+        <span className={`text-[10px] font-semibold ${socketStatusTextClass(rt.state)}`}>{rt.state}</span>
         <div className="flex-1" />
         <span className="text-muted-foreground">
           conn: <span className={valueToneClass(rt.activeChannels)}>{rt.activeChannels}</span>

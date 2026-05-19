@@ -98,37 +98,45 @@ interface PoolRow {
 function buildRows(config: ChannelConfigResponse, channel: ChannelSummary): PoolRow[] {
   const rows: PoolRow[] = [];
 
-  // Build an index of live remote endpoints so we can look up quickly.
-  // Server sockets: match the configured pool against observed client
-  // connections on the server side (remoteHost = peer we accepted).
-  // Client sockets: match against the endpoint we initiated to (remoteHost).
-  const liveServerPeers = new Map<string, SocketStatus>();
-  for (const s of channel.servers) {
-    const key = hostPortKey(s.runtime.remoteHost);
-    if (key) liveServerPeers.set(key, s.runtime.state);
-  }
-  const liveClientPeers = new Map<string, SocketStatus>();
+  // Server pool rows: status comes directly from the server socket state
+  // (same source as jsocket.sh status → SocketTelemetry.getRuntimeState().status).
+  // remoteHost matching is wrong here because server sockets show the peer's
+  // ephemeral port, not the configured listen port.
+  const serverState = channel.servers[0]?.runtime.state ?? null;
+
+  // Client rows: primary match by remoteHost (works when ACTIVE/connected).
+  // Fallback to positional match for sockets in WAIT/DOWN state whose remoteHost is blank.
+  const liveClientByRemote = new Map<string, SocketStatus>();
   for (const s of channel.clients) {
     const key = hostPortKey(s.runtime.remoteHost);
-    if (key) liveClientPeers.set(key, s.runtime.state);
+    if (key && key !== '-') liveClientByRemote.set(key, s.runtime.state);
   }
+  const unmatchedClients = channel.clients.filter(s => {
+    const key = hostPortKey(s.runtime.remoteHost);
+    return !key || key === '-' || !liveClientByRemote.has(key);
+  });
+  let unmatchedIdx = 0;
 
   if (config.server?.pool) {
     for (const ep of config.server.pool) {
       rows.push({
         direction: 'server-pool',
         endpoint: ep,
-        runtimeStatus: liveServerPeers.get(`${ep.host}:${ep.port}`) ?? null,
+        runtimeStatus: serverState,
       });
     }
   }
 
   if (config.client?.endpoints) {
     for (const ep of config.client.endpoints) {
+      const key = `${ep.host}:${ep.port}`;
+      const status = liveClientByRemote.get(key)
+        ?? unmatchedClients[unmatchedIdx++]?.runtime.state
+        ?? null;
       rows.push({
         direction: 'client',
         endpoint: ep,
-        runtimeStatus: liveClientPeers.get(`${ep.host}:${ep.port}`) ?? null,
+        runtimeStatus: status,
       });
     }
   }
