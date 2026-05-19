@@ -36,11 +36,12 @@ public class GrpcServer {
 
     private static final Logger log = LoggerFactory.getLogger(GrpcServer.class);
 
-    private final AdminHttpService    adminService;
-    private final ReloadCfgService    reloadService;
-    private final TelemetryRegistry   telemetryRegistry;
-    private final AiWeightRegistry    aiWeightRegistry;
+    private final AdminHttpService     adminService;
+    private final ReloadCfgService     reloadService;
+    private final TelemetryRegistry    telemetryRegistry;
+    private final AiWeightRegistry     aiWeightRegistry;
     private final ChannelGroupRegistry groupRegistry;
+    private final boolean              clusterEnabled;
 
     private Server             server;
     private MetricsBroadcaster broadcaster;
@@ -49,12 +50,14 @@ public class GrpcServer {
                       ReloadCfgService reloadService,
                       TelemetryRegistry telemetryRegistry,
                       AiWeightRegistry aiWeightRegistry,
-                      ChannelGroupRegistry groupRegistry) {
+                      ChannelGroupRegistry groupRegistry,
+                      boolean clusterEnabled) {
         this.adminService      = adminService;
         this.reloadService     = reloadService;
         this.telemetryRegistry = telemetryRegistry;
         this.aiWeightRegistry  = aiWeightRegistry;
         this.groupRegistry     = groupRegistry;
+        this.clusterEnabled    = clusterEnabled;
     }
 
     public void start(int port, long intervalMs) throws IOException {
@@ -73,7 +76,7 @@ public class GrpcServer {
         broadcaster.start();
 
         CoreServiceImpl coreService = new CoreServiceImpl(
-                systemInfo, broadcaster, adminService, reloadService, aiWeightRegistry, groupRegistry);
+                systemInfo, broadcaster, adminService, reloadService, aiWeightRegistry, groupRegistry, clusterEnabled);
 
         server = NettyServerBuilder.forPort(port)
                 .addService(coreService)

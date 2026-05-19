@@ -1,8 +1,12 @@
 package id.co.jalin.seconsole.grpc;
 
 import com.socket.edge.grpc.ChannelConfigList;
+import com.socket.edge.grpc.ChannelRequest;
+import com.socket.edge.grpc.ControlResponse;
 import com.socket.edge.grpc.CoreServiceGrpc;
 import com.socket.edge.grpc.Empty;
+import com.socket.edge.grpc.HealthResponse;
+import com.socket.edge.grpc.SocketRequest;
 import io.grpc.ManagedChannel;
 import io.grpc.netty.shaded.io.grpc.netty.NettyChannelBuilder;
 import jakarta.annotation.PreDestroy;
@@ -50,11 +54,59 @@ public class CoreGrpcClient {
         return CoreServiceGrpc.newBlockingStub(channel);
     }
 
+    public HealthResponse getHealth() {
+        return blockingStub()
+                .withDeadlineAfter(5, TimeUnit.SECONDS)
+                .getHealth(Empty.getDefaultInstance());
+    }
+
     /** Fetch live channel configuration from se-core. */
     public ChannelConfigList getChannelConfigs() {
         return blockingStub()
                 .withDeadlineAfter(5, TimeUnit.SECONDS)
                 .getChannelConfigs(Empty.getDefaultInstance());
+    }
+
+    public ControlResponse reloadConfig() {
+        return blockingStub()
+                .withDeadlineAfter(10, TimeUnit.SECONDS)
+                .reloadConfig(Empty.getDefaultInstance());
+    }
+
+    public ControlResponse startChannel(String channelName) {
+        return blockingStub()
+                .withDeadlineAfter(10, TimeUnit.SECONDS)
+                .startChannel(ChannelRequest.newBuilder().setChannelName(channelName).build());
+    }
+
+    public ControlResponse stopChannel(String channelName) {
+        return blockingStub()
+                .withDeadlineAfter(10, TimeUnit.SECONDS)
+                .stopChannel(ChannelRequest.newBuilder().setChannelName(channelName).build());
+    }
+
+    public ControlResponse restartChannel(String channelName) {
+        return blockingStub()
+                .withDeadlineAfter(10, TimeUnit.SECONDS)
+                .restartChannel(ChannelRequest.newBuilder().setChannelName(channelName).build());
+    }
+
+    public ControlResponse startSocket(String bindingId) {
+        return blockingStub()
+                .withDeadlineAfter(10, TimeUnit.SECONDS)
+                .startSocket(SocketRequest.newBuilder().setBindingId(bindingId).build());
+    }
+
+    public ControlResponse stopSocket(String bindingId) {
+        return blockingStub()
+                .withDeadlineAfter(10, TimeUnit.SECONDS)
+                .stopSocket(SocketRequest.newBuilder().setBindingId(bindingId).build());
+    }
+
+    public ControlResponse restartSocket(String bindingId) {
+        return blockingStub()
+                .withDeadlineAfter(10, TimeUnit.SECONDS)
+                .restartSocket(SocketRequest.newBuilder().setBindingId(bindingId).build());
     }
 
     @PreDestroy

@@ -37,9 +37,21 @@ message MetricsBundle {
     string          node_id = 10;  // se-core cluster node identifier
 }
 
+// Engine health snapshot returned by GetHealth
+message HealthResponse {
+    string status = 1;  // "OK" (MASTER) or "STANDBY" (SLAVE)
+    string role   = 2;  // "MASTER" or "SLAVE"
+    string mode   = 3;  // "CLUSTER" or "STANDALONE"
+}
+
 // Request to target a named channel for control operations
 message ChannelRequest {
     string channel_name = 1;
+}
+
+// Request to target a single socket by its binding id
+message SocketRequest {
+    string binding_id = 1;
 }
 
 service CoreService {
@@ -47,6 +59,9 @@ service CoreService {
     // ── Static info ───────────────────────────────────────────
     // Fetch once on connect. Does not change at runtime.
     rpc GetSystemInfo(Empty) returns (SystemInfo);
+
+    // ── Health ────────────────────────────────────────────────
+    rpc GetHealth(Empty) returns (HealthResponse);
 
 
     // ── Metrics streaming ─────────────────────────────────────
@@ -61,10 +76,14 @@ service CoreService {
     // grpcurl equivalent: grpcurl -plaintext -d '{"channel_name":"bni"}' \
     //   host:9090 socket.edge.CoreService/StartChannel
 
-    rpc StartChannel(ChannelRequest)  returns (ControlResponse);
-    rpc StopChannel(ChannelRequest)   returns (ControlResponse);
+    rpc StartChannel(ChannelRequest)   returns (ControlResponse);
+    rpc StopChannel(ChannelRequest)    returns (ControlResponse);
     rpc RestartChannel(ChannelRequest) returns (ControlResponse);
-    rpc ReloadConfig(Empty)           returns (ControlResponse);
+    rpc ReloadConfig(Empty)            returns (ControlResponse);
+
+    rpc StartSocket(SocketRequest)     returns (ControlResponse);
+    rpc StopSocket(SocketRequest)      returns (ControlResponse);
+    rpc RestartSocket(SocketRequest)   returns (ControlResponse);
 
 
     // ── Static config ─────────────────────────────────────────

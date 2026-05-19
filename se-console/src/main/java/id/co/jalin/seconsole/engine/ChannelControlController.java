@@ -1,9 +1,12 @@
 package id.co.jalin.seconsole.engine;
 
+import com.socket.edge.grpc.ControlResponse;
 import id.co.jalin.seconsole.engine.dto.ChannelSummary;
 import id.co.jalin.seconsole.engine.dto.SocketActionResponse;
 import id.co.jalin.seconsole.engine.dto.SocketSummary;
+import id.co.jalin.seconsole.grpc.CoreGrpcClient;
 import id.co.jalin.seconsole.service.AuditService;
+import io.grpc.StatusRuntimeException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.ResponseEntity;
@@ -41,14 +44,14 @@ public class ChannelControlController {
 
     private static final Logger log = LoggerFactory.getLogger(ChannelControlController.class);
 
-    private final EngineClient engineClient;
+    private final CoreGrpcClient grpcClient;
     private final EngineChannelSnapshotService snapshotService;
     private final AuditService auditService;
 
-    public ChannelControlController(EngineClient engineClient,
+    public ChannelControlController(CoreGrpcClient grpcClient,
                                     EngineChannelSnapshotService snapshotService,
                                     AuditService auditService) {
-        this.engineClient = engineClient;
+        this.grpcClient = grpcClient;
         this.snapshotService = snapshotService;
         this.auditService = auditService;
     }
@@ -133,9 +136,11 @@ public class ChannelControlController {
         String failMessage = null;
 
         try {
-            engineMessage = engineClient.postSocketAction(action, paramName, paramValue);
+            engineMessage = "name".equals(paramName)
+                    ? invokeChannelGrpc(action, paramValue)
+                    : invokeSocketGrpc(action, paramValue);
             success = true;
-        } catch (EngineClient.EngineClientException ex) {
+        } catch (EngineException ex) {
             failMessage = ex.getMessage();
             log.warn("Engine rejected {}/{} on {} {}: {}", action, scope, paramName, paramValue, failMessage);
         }
@@ -177,6 +182,36 @@ public class ChannelControlController {
         return success
                 ? ResponseEntity.ok(body)
                 : ResponseEntity.status(502).body(body);
+    }
+
+    private String invokeChannelGrpc(String action, String channelName) {
+        try {
+            ControlResponse r = switch (action) {
+                case "start"   -> grpcClient.startChannel(channelName);
+                case "stop"    -> grpcClient.stopChannel(channelName);
+                case "restart" -> grpcClient.restartChannel(channelName);
+                default -> throw new EngineException("Unknown action: " + action);
+            };
+            if (!r.getSuccess()) throw new EngineException(r.getMessage());
+            return r.getMessage();
+        } catch (StatusRuntimeException ex) {
+            throw new EngineException("gRPC error: " + ex.getStatus(), ex);
+        }
+    }
+
+    private String invokeSocketGrpc(String action, String bindingId) {
+        try {
+            ControlResponse r = switch (action) {
+                case "start"   -> grpcClient.startSocket(bindingId);
+                case "stop"    -> grpcClient.stopSocket(bindingId);
+                case "restart" -> grpcClient.restartSocket(bindingId);
+                default -> throw new EngineException("Unknown action: " + action);
+            };
+            if (!r.getSuccess()) throw new EngineException(r.getMessage());
+            return r.getMessage();
+        } catch (StatusRuntimeException ex) {
+            throw new EngineException("gRPC error: " + ex.getStatus(), ex);
+        }
     }
 
     private static boolean socketBelongsToChannel(ChannelSummary c, String bindingId) {

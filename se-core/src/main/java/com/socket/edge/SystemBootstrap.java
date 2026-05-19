@@ -306,7 +306,7 @@ public class SystemBootstrap {
         int  port       = Integer.parseInt(System.getProperty("grpc.port", "9090"));
         long intervalMs = Long.parseLong(System.getProperty("grpc.metrics.interval.ms", "2000"));
         grpcServer = new GrpcServer(adminHttpService, reloadCfgService, telemetryRegistry,
-                this.aiWeightRegistry, groupRegistry);
+                this.aiWeightRegistry, groupRegistry, systemConfig.clusterEnabled());
         grpcServer.start(port, intervalMs);
     }
 

@@ -6,16 +6,12 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.validation.annotation.Validated;
 
 /**
- * Configuration for the SE-Console → engine HTTP REST client.
+ * Configuration for the SE-Console → engine connection.
  *
  * <p>Binds {@code seconsole.engine.*} from {@code application.yml}. Defaults
  * target the engine's {@code NettyHttpServer} on the loopback interface with
  * authentication disabled (matching the engine's {@code auth.mode=none}
  * out-of-the-box default).
- *
- * <p>This properties class lives in the same package as the client and
- * services that consume it; it is picked up via {@code @EnableConfigurationProperties}
- * on {@link EngineClient}.
  */
 @Validated
 @ConfigurationProperties(prefix = "seconsole.engine")

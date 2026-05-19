@@ -1,6 +1,8 @@
 package id.co.jalin.seconsole.engine;
 
-import id.co.jalin.seconsole.engine.model.EngineHealth;
+import com.socket.edge.grpc.HealthResponse;
+import id.co.jalin.seconsole.grpc.CoreGrpcClient;
+import io.grpc.StatusRuntimeException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
@@ -11,8 +13,8 @@ import java.time.Instant;
 import java.util.concurrent.atomic.AtomicReference;
 
 /**
- * Polls {@code GET /healthcheck} on a 5s cadence (configurable) to drive the
- * topbar {@code EngineHealthBadge}. Cache is read synchronously from the
+ * Polls gRPC GetHealth on a 5s cadence (configurable) to drive the
+ * topbar EngineHealthBadge. Cache is read synchronously from the
  * controller — no engine call on the request path.
  */
 @Service
@@ -21,12 +23,12 @@ public class EngineHealthService {
 
     private static final Logger log = LoggerFactory.getLogger(EngineHealthService.class);
 
-    private final EngineClient client;
+    private final CoreGrpcClient grpcClient;
     private final EngineProperties props;
     private final AtomicReference<State> state = new AtomicReference<>(State.unknown());
 
-    public EngineHealthService(EngineClient client, EngineProperties props) {
-        this.client = client;
+    public EngineHealthService(CoreGrpcClient grpcClient, EngineProperties props) {
+        this.grpcClient = grpcClient;
         this.props = props;
     }
 
@@ -36,9 +38,14 @@ public class EngineHealthService {
     )
     public void poll() {
         try {
-            EngineHealth h = client.getHealth();
-            state.set(new State(true, h.status(), h.role(), h.mode(),
+            HealthResponse h = grpcClient.getHealth();
+            state.set(new State(true, h.getStatus(), h.getRole(), h.getMode(),
                     Instant.now().toEpochMilli(), null));
+        } catch (StatusRuntimeException ex) {
+            State prev = state.get();
+            state.set(new State(false, prev.status(), prev.role(), prev.mode(),
+                    Instant.now().toEpochMilli(), ex.getStatus().toString()));
+            log.debug("Engine health poll failed: {}", ex.getStatus());
         } catch (Exception ex) {
             State prev = state.get();
             state.set(new State(false, prev.status(), prev.role(), prev.mode(),

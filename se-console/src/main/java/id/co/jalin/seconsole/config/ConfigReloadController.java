@@ -1,7 +1,9 @@
 package id.co.jalin.seconsole.config;
 
-import id.co.jalin.seconsole.engine.EngineClient;
+import com.socket.edge.grpc.ControlResponse;
+import id.co.jalin.seconsole.grpc.CoreGrpcClient;
 import id.co.jalin.seconsole.service.AuditService;
+import io.grpc.StatusRuntimeException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.ResponseEntity;
@@ -16,8 +18,7 @@ import java.util.LinkedHashMap;
 import java.util.Map;
 
 /**
- * Reload endpoint — triggers an engine config reload via the engine's
- * HTTP {@code POST /config/reload} endpoint.
+ * Reload endpoint — triggers an engine config reload via gRPC ReloadConfig.
  *
  * <p>From the UI's perspective the action is per-file
  * ({@code POST /api/config/reload/{fileName}}) but the engine reload
@@ -27,7 +28,8 @@ import java.util.Map;
  *
  * <p>Failure modes:
  * <ul>
- *   <li>Engine call fails (transport or non-ok envelope) → 502 with the error.</li>
+ *   <li>gRPC transport error → 502 with the error.</li>
+ *   <li>Engine returns success=false → 502 with the engine message.</li>
  *   <li>Unexpected exception → 500.</li>
  * </ul>
  *
@@ -40,39 +42,35 @@ public class ConfigReloadController {
     private static final Logger log = LoggerFactory.getLogger(ConfigReloadController.class);
 
     private final AuditService auditService;
-    private final EngineClient engineClient;
+    private final CoreGrpcClient grpcClient;
 
-    public ConfigReloadController(AuditService auditService, EngineClient engineClient) {
+    public ConfigReloadController(AuditService auditService, CoreGrpcClient grpcClient) {
         this.auditService = auditService;
-        this.engineClient = engineClient;
+        this.grpcClient = grpcClient;
     }
 
     @PostMapping("/reload/{fileName}")
     public ResponseEntity<?> reload(@PathVariable String fileName) {
         long started = System.currentTimeMillis();
         String username = currentUsername();
-        String engineMessage;
 
+        ControlResponse response;
         try {
-            engineMessage = engineClient.reloadConfig();
-        } catch (EngineClient.EngineClientException ex) {
+            response = grpcClient.reloadConfig();
+        } catch (StatusRuntimeException ex) {
             long durationMs = System.currentTimeMillis() - started;
-            log.warn("Engine reload failed for {}: {}", fileName, ex.getMessage());
-
+            log.warn("Engine reload failed for {}: {}", fileName, ex.getStatus());
             try {
                 auditService.logFailure(null, username, "RELOAD_CONFIG",
                         "config_file", fileName,
-                        "{\"durationMs\":" + durationMs + ",\"error\":" + quote(ex.getMessage()) + "}",
+                        "{\"durationMs\":" + durationMs + ",\"error\":" + quote(ex.getStatus().toString()) + "}",
                         null, null);
             } catch (Exception auditEx) {
                 log.warn("Audit write failed for reload failure {}: {}", fileName, auditEx.getMessage());
             }
-
-            // 502 — SE-Console itself is healthy; the engine rejected. Distinguishes
-            // this from an SE-Console-internal error (500).
             return ResponseEntity.status(502).body(Map.of(
                     "error", "engine_reload_failed",
-                    "message", ex.getMessage(),
+                    "message", ex.getStatus().toString(),
                     "durationMs", durationMs
             ));
         } catch (Exception ex) {
@@ -87,6 +85,25 @@ public class ConfigReloadController {
 
         long durationMs = System.currentTimeMillis() - started;
 
+        if (!response.getSuccess()) {
+            String errorMsg = response.getMessage();
+            log.warn("Engine rejected reload for {}: {}", fileName, errorMsg);
+            try {
+                auditService.logFailure(null, username, "RELOAD_CONFIG",
+                        "config_file", fileName,
+                        "{\"durationMs\":" + durationMs + ",\"error\":" + quote(errorMsg) + "}",
+                        null, null);
+            } catch (Exception auditEx) {
+                log.warn("Audit write failed for reload failure {}: {}", fileName, auditEx.getMessage());
+            }
+            return ResponseEntity.status(502).body(Map.of(
+                    "error", "engine_reload_failed",
+                    "message", errorMsg,
+                    "durationMs", durationMs
+            ));
+        }
+
+        String engineMessage = response.getMessage();
         try {
             auditService.logSuccess(null, username, "RELOAD_CONFIG",
                     "config_file", fileName,
@@ -116,7 +133,6 @@ public class ConfigReloadController {
         return auth.getName();
     }
 
-    /** Tiny JSON string encoder — avoids pulling Jackson just for audit details. */
     private static String quote(String s) {
         if (s == null) return "null";
         StringBuilder sb = new StringBuilder(s.length() + 2);

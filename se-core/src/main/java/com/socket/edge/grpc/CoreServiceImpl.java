@@ -1,5 +1,6 @@
 package com.socket.edge.grpc;
 
+import com.socket.edge.constant.NodeRole;
 import com.socket.edge.core.AiWeightRegistry;
 import com.socket.edge.core.socket.ChannelGroup;
 import com.socket.edge.core.socket.ChannelGroupRegistry;
@@ -29,6 +30,9 @@ import java.util.List;
  *   - StopChannel()         → delegates to AdminHttpService
  *   - RestartChannel()      → delegates to AdminHttpService
  *   - ReloadConfig()        → delegates to ReloadCfgService
+ *   - StartSocket()         → delegates to AdminHttpService (by bindingId)
+ *   - StopSocket()          → delegates to AdminHttpService (by bindingId)
+ *   - RestartSocket()       → delegates to AdminHttpService (by bindingId)
  */
 public class CoreServiceImpl extends CoreServiceGrpc.CoreServiceImplBase {
 
@@ -40,19 +44,22 @@ public class CoreServiceImpl extends CoreServiceGrpc.CoreServiceImplBase {
     private final ReloadCfgService    reloadService;
     private final AiWeightRegistry    aiWeightRegistry;
     private final ChannelGroupRegistry groupRegistry;
+    private final boolean              clusterEnabled;
 
     public CoreServiceImpl(SystemInfo cachedSystemInfo,
                            MetricsBroadcaster broadcaster,
                            AdminHttpService adminService,
                            ReloadCfgService reloadService,
                            AiWeightRegistry aiWeightRegistry,
-                           ChannelGroupRegistry groupRegistry) {
+                           ChannelGroupRegistry groupRegistry,
+                           boolean clusterEnabled) {
         this.cachedSystemInfo = cachedSystemInfo;
         this.broadcaster      = broadcaster;
         this.adminService     = adminService;
         this.reloadService    = reloadService;
         this.aiWeightRegistry = aiWeightRegistry;
         this.groupRegistry    = groupRegistry;
+        this.clusterEnabled   = clusterEnabled;
     }
 
     // ── Static info ───────────────────────────────────────────────────────────
@@ -93,6 +100,26 @@ public class CoreServiceImpl extends CoreServiceGrpc.CoreServiceImplBase {
         }
     }
 
+    // ── Health ────────────────────────────────────────────────────────────────
+
+    @Override
+    public void getHealth(Empty request, StreamObserver<HealthResponse> responseObserver) {
+        try {
+            NodeRole role = adminService.getNodeRole();
+            responseObserver.onNext(HealthResponse.newBuilder()
+                    .setStatus(role == NodeRole.MASTER ? "OK" : "STANDBY")
+                    .setRole(role.name())
+                    .setMode(clusterEnabled ? "CLUSTER" : "STANDALONE")
+                    .build());
+            responseObserver.onCompleted();
+        } catch (Exception e) {
+            log.error("GetHealth failed", e);
+            responseObserver.onError(Status.INTERNAL
+                    .withDescription("Health check failed: " + e.getMessage())
+                    .asRuntimeException());
+        }
+    }
+
     // ── Channel control ───────────────────────────────────────────────────────
 
     @Override
@@ -111,6 +138,26 @@ public class CoreServiceImpl extends CoreServiceGrpc.CoreServiceImplBase {
     public void restartChannel(ChannelRequest request, StreamObserver<ControlResponse> responseObserver) {
         handleControl("restart", request.getChannelName(), responseObserver,
                 () -> adminService.restartSocketByName(request.getChannelName()));
+    }
+
+    // ── Socket control (by bindingId) ─────────────────────────────────────────
+
+    @Override
+    public void startSocket(SocketRequest request, StreamObserver<ControlResponse> responseObserver) {
+        handleSocketControl("start", request.getBindingId(), responseObserver,
+                () -> adminService.startSocketById(request.getBindingId()));
+    }
+
+    @Override
+    public void stopSocket(SocketRequest request, StreamObserver<ControlResponse> responseObserver) {
+        handleSocketControl("stop", request.getBindingId(), responseObserver,
+                () -> adminService.stopSocketById(request.getBindingId()));
+    }
+
+    @Override
+    public void restartSocket(SocketRequest request, StreamObserver<ControlResponse> responseObserver) {
+        handleSocketControl("restart", request.getBindingId(), responseObserver,
+                () -> adminService.restartSocketById(request.getBindingId()));
     }
 
     @Override
@@ -210,6 +257,23 @@ public class CoreServiceImpl extends CoreServiceGrpc.CoreServiceImplBase {
             respond(obs, true, "Channel " + action + " successful: " + channel);
         } catch (Exception e) {
             log.error("Channel {} failed: {}", action, channel, e);
+            respond(obs, false, action + " failed: " + e.getMessage());
+        }
+    }
+
+    private void handleSocketControl(String action, String bindingId,
+                                      StreamObserver<ControlResponse> obs, Runnable op) {
+        if (bindingId == null || bindingId.isBlank()) {
+            obs.onError(Status.INVALID_ARGUMENT
+                    .withDescription("binding_id is required").asRuntimeException());
+            return;
+        }
+        try {
+            log.info("Socket {} requested via gRPC: {}", action, bindingId);
+            op.run();
+            respond(obs, true, "Socket " + action + " successful: " + bindingId);
+        } catch (Exception e) {
+            log.error("Socket {} failed: {}", action, bindingId, e);
             respond(obs, false, action + " failed: " + e.getMessage());
         }
     }
