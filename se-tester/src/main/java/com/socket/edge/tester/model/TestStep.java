@@ -8,7 +8,7 @@ import java.util.Map;
 @JsonIgnoreProperties(ignoreUnknown = true)
 public class TestStep {
 
-    public enum Action { SEND, WAIT, LOG, PAUSE, CALL, DISCONNECT }
+    public enum Action { SEND, SEND_ASYNC, WAIT, LOG, PAUSE, CALL, DISCONNECT }
 
     private String id;
     private String name;

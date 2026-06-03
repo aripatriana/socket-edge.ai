@@ -238,6 +238,7 @@ public class TestCaseRunner {
         try {
             switch (step.getAction()) {
                 case SEND       -> executeSend(step, vars, clients, sr);
+                case SEND_ASYNC -> executeSendAsync(step, vars, clients, sr);
                 case DISCONNECT -> executeDisconnect(step, clients, sr);
                 case WAIT       -> Thread.sleep(step.getWaitMs()  != null ? step.getWaitMs()  : 0);
                 case PAUSE      -> Thread.sleep(step.getPauseMs() != null ? step.getPauseMs() : 0);
@@ -291,6 +292,37 @@ public class TestCaseRunner {
         boolean hardFailed = results.stream()
                 .anyMatch(a -> !a.isPassed() && a.getSeverity() == Assertion.Severity.HARD);
         sr.setStatus(hardFailed ? StepResult.Status.FAILED : StepResult.Status.PASSED);
+    }
+
+    // =========================================================================
+    // SEND_ASYNC — fire and forget, tidak blocking, tidak tunggu response
+    // =========================================================================
+
+    private void executeSendAsync(TestStep step, Map<String, String> vars,
+                                   Map<String, IsoClient> clients, StepResult sr) {
+        String connId = step.getConnection();
+        IsoClient client = clients.get(connId);
+        if (client == null) {
+            sr.setStatus(StepResult.Status.ERROR);
+            sr.setError("Connection '" + connId + "' not found");
+            return;
+        }
+        IsoMessage request = buildMessage(step.getMessage(), vars);
+        sr.setRequest(request);
+        recordContext(step.getId(), "request", request);
+
+        // Fire and forget — response (if any) is ignored
+        client.sendAsync(request, 30000)
+              .whenComplete((resp, ex) -> {
+                  if (ex != null) log.debug("SEND_ASYNC [{}] no response: {}", step.getId(), ex.getMessage());
+                  else if (resp != null) {
+                      recordContext(step.getId(), "response", resp);
+                      log.debug("SEND_ASYNC [{}] late response received (ignored for assertions)", step.getId());
+                  }
+              });
+
+        sr.setStatus(StepResult.Status.PASSED);
+        log.info("SEND_ASYNC fired step '{}' via connection '{}'", step.getId(), connId);
     }
 
     // =========================================================================
