@@ -49,12 +49,15 @@ public class TestCase {
     @JsonIgnoreProperties(ignoreUnknown = true)
     public static class Setup {
         private ServerConfig server;
-        private ConnectConfig connect;
+        private ConnectConfig connect;           // single connection (id="default")
+        private List<ConnectConfig> connections; // named multi-connections
 
         public ServerConfig getServer() { return server; }
         public void setServer(ServerConfig server) { this.server = server; }
         public ConnectConfig getConnect() { return connect; }
         public void setConnect(ConnectConfig connect) { this.connect = connect; }
+        public List<ConnectConfig> getConnections() { return connections; }
+        public void setConnections(List<ConnectConfig> connections) { this.connections = connections; }
     }
 
     @JsonIgnoreProperties(ignoreUnknown = true)
@@ -62,7 +65,8 @@ public class TestCase {
         private int port = 9100;
         private boolean autoRespond = true;
         private int delayMs = 0;
-        private String responseCode = "00"; // DE39 default; override for decline scenarios
+        private String responseCode = "00";
+        private int headerBytes = 4; // 4 = standalone default, 2 = SE-Core compatible
 
         public int getPort() { return port; }
         public void setPort(int port) { this.port = port; }
@@ -72,20 +76,28 @@ public class TestCase {
         public void setDelayMs(int delayMs) { this.delayMs = delayMs; }
         public String getResponseCode() { return responseCode; }
         public void setResponseCode(String responseCode) { this.responseCode = responseCode; }
+        public int getHeaderBytes() { return headerBytes; }
+        public void setHeaderBytes(int headerBytes) { this.headerBytes = headerBytes; }
     }
 
     @JsonIgnoreProperties(ignoreUnknown = true)
     public static class ConnectConfig {
+        private String id = "default"; // connection name, referenced in steps
         private String host = "127.0.0.1";
         private int port = 9999;
         private int timeoutMs = 10000;
+        private int headerBytes = 4; // 4 = standalone default, 2 = SE-Core compatible
 
+        public String getId() { return id; }
+        public void setId(String id) { this.id = id; }
         public String getHost() { return host; }
         public void setHost(String host) { this.host = host; }
         public int getPort() { return port; }
         public void setPort(int port) { this.port = port; }
         public int getTimeoutMs() { return timeoutMs; }
         public void setTimeoutMs(int timeoutMs) { this.timeoutMs = timeoutMs; }
+        public int getHeaderBytes() { return headerBytes; }
+        public void setHeaderBytes(int headerBytes) { this.headerBytes = headerBytes; }
     }
 
     @JsonIgnoreProperties(ignoreUnknown = true)

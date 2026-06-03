@@ -12,3 +12,5 @@ testCases:
   - ../testcases/financial/TC_006_decline.yaml
   - ../testcases/regression/TC_007_keyword_call.yaml
   - ../testcases/financial/TC_008_data_driven_purchase.yaml
+  - ../testcases/regression/TC_009_2byte_framing.yaml
+  - ../testcases/regression/TC_010_dual_connection_disconnect.yaml

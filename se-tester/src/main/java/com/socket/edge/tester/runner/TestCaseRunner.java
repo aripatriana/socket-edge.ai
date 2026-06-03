@@ -121,11 +121,12 @@ public class TestCaseRunner {
         TestResult result = new TestResult(tc.getName());
         long t0 = System.currentTimeMillis();
 
-        IsoClient client = new IsoClient();
+        Map<String, IsoClient> clients = new LinkedHashMap<>();
         IsoServer server = null;
 
         try {
-            server = setup(tc, client);
+            server = setupServer(tc);
+            setupClients(tc, vars, clients);
 
             boolean stopOnNextHardFail = false;
             for (TestStep step : tc.getSteps()) {
@@ -133,7 +134,7 @@ public class TestCaseRunner {
                     result.getSteps().add(StepResult.skipped(step));
                     continue;
                 }
-                StepResult sr = executeStep(step, vars, client, baseDir);
+                StepResult sr = executeStep(step, vars, clients, baseDir);
                 result.getSteps().add(sr);
 
                 boolean hardFailed = sr.getStatus() == StepResult.Status.FAILED
@@ -146,7 +147,7 @@ public class TestCaseRunner {
             result.setError(e.getMessage());
             log.error("Test case [{}] error", tc.getName(), e);
         } finally {
-            teardown(tc, client, server);
+            teardown(tc, clients, server);
             result.setDurationMs(System.currentTimeMillis() - t0);
         }
 
@@ -165,36 +166,57 @@ public class TestCaseRunner {
     // Setup / Teardown
     // =========================================================================
 
-    private IsoServer setup(TestCase tc, IsoClient client) throws Exception {
-        IsoServer server = null;
+    private IsoServer setupServer(TestCase tc) throws Exception {
         TestCase.Setup setup = tc.getSetup();
-        if (setup == null) return null;
+        if (setup == null || setup.getServer() == null) return null;
 
-        if (setup.getServer() != null) {
-            TestCase.ServerConfig sc = setup.getServer();
-            server = new IsoServer();
-            server.start(sc.getPort(), sc.isAutoRespond(), sc.getDelayMs(), sc.getResponseCode());
-        }
-
-        if (setup.getConnect() != null) {
-            TestCase.ConnectConfig cc = setup.getConnect();
-            String host    = resolve(cc.getHost(), Map.of());
-            String portStr = resolve(String.valueOf(cc.getPort()), Map.of());
-            client.connect(host, Integer.parseInt(portStr.trim()), cc.getTimeoutMs());
-        }
-
+        TestCase.ServerConfig sc = setup.getServer();
+        IsoServer server = new IsoServer();
+        server.start(sc.getPort(), sc.isAutoRespond(), sc.getDelayMs(),
+                     sc.getResponseCode(), sc.getHeaderBytes());
         return server;
     }
 
-    private void teardown(TestCase tc, IsoClient client, IsoServer server) {
+    private void setupClients(TestCase tc, Map<String, String> vars,
+                               Map<String, IsoClient> clients) throws Exception {
+        TestCase.Setup setup = tc.getSetup();
+        if (setup == null) return;
+
+        // connections: list — named multi-connections
+        if (setup.getConnections() != null) {
+            for (TestCase.ConnectConfig cc : setup.getConnections()) {
+                String id = cc.getId() != null && !cc.getId().isBlank() ? cc.getId() : "default";
+                connectOne(id, cc, vars, clients);
+            }
+        }
+
+        // connect: single (backward compat) — only if "default" not already created
+        if (setup.getConnect() != null && !clients.containsKey("default")) {
+            connectOne("default", setup.getConnect(), vars, clients);
+        }
+    }
+
+    private void connectOne(String id, TestCase.ConnectConfig cc,
+                             Map<String, String> vars, Map<String, IsoClient> clients) throws Exception {
+        String host = resolve(cc.getHost(), vars);
+        int    port = cc.getPort();
+        IsoClient client = new IsoClient();
+        client.connect(host, port, cc.getTimeoutMs(), cc.getHeaderBytes());
+        clients.put(id, client);
+    }
+
+    private void teardown(TestCase tc, Map<String, IsoClient> clients, IsoServer server) {
         TestCase.Teardown td = tc.getTeardown();
-        boolean doDisconnect  = td == null || td.isDisconnect();
-        boolean doStopServer  = td == null || td.isStopServer();
+        boolean doDisconnect = td == null || td.isDisconnect();
+        boolean doStopServer = td == null || td.isStopServer();
 
         if (doDisconnect) {
-            try { client.disconnect(); } catch (Exception e) {
-                log.warn("Error during client disconnect: {}", e.getMessage());
-            }
+            clients.forEach((id, client) -> {
+                try { client.disconnect(); } catch (Exception e) {
+                    log.warn("Error disconnecting '{}': {}", id, e.getMessage());
+                }
+            });
+            clients.clear();
         }
         if (doStopServer && server != null) {
             try { server.stop(); } catch (Exception e) {
@@ -208,22 +230,23 @@ public class TestCaseRunner {
     // =========================================================================
 
     private StepResult executeStep(TestStep step, Map<String, String> vars,
-                                   IsoClient client, Path baseDir) {
+                                   Map<String, IsoClient> clients, Path baseDir) {
         StepResult sr = new StepResult();
         sr.setStepId(step.getId());
         sr.setStepName(step.getName() != null ? step.getName() : step.getId());
 
         try {
             switch (step.getAction()) {
-                case SEND  -> executeSend(step, vars, client, sr);
-                case WAIT  -> Thread.sleep(step.getWaitMs() != null ? step.getWaitMs() : 0);
-                case PAUSE -> Thread.sleep(step.getPauseMs() != null ? step.getPauseMs() : 0);
-                case LOG   -> {
+                case SEND       -> executeSend(step, vars, clients, sr);
+                case DISCONNECT -> executeDisconnect(step, clients, sr);
+                case WAIT       -> Thread.sleep(step.getWaitMs()  != null ? step.getWaitMs()  : 0);
+                case PAUSE      -> Thread.sleep(step.getPauseMs() != null ? step.getPauseMs() : 0);
+                case LOG        -> {
                     log.info("[LOG] {}", resolve(step.getLogMessage(), vars));
                     System.out.println("[LOG] " + resolve(step.getLogMessage(), vars));
                     sr.setStatus(StepResult.Status.PASSED);
                 }
-                case CALL  -> executeCall(step, vars, client, sr, baseDir);
+                case CALL       -> executeCall(step, vars, clients, sr, baseDir);
             }
             if (sr.getStatus() == null) sr.setStatus(StepResult.Status.PASSED);
         } catch (Exception e) {
@@ -240,6 +263,15 @@ public class TestCaseRunner {
     // =========================================================================
 
     private void executeSend(TestStep step, Map<String, String> vars,
+                             Map<String, IsoClient> clients, StepResult sr) throws Exception {
+        String connId = step.getConnection();
+        IsoClient client = clients.get(connId);
+        if (client == null)
+            throw new IllegalStateException("Connection '" + connId + "' not found. Available: " + clients.keySet());
+        executeSendWithClient(step, vars, client, sr);
+    }
+
+    private void executeSendWithClient(TestStep step, Map<String, String> vars,
                              IsoClient client, StepResult sr) throws Exception {
         IsoMessage request = buildMessage(step.getMessage(), vars);
         sr.setRequest(request);
@@ -262,11 +294,34 @@ public class TestCaseRunner {
     }
 
     // =========================================================================
+    // DISCONNECT
+    // =========================================================================
+
+    private void executeDisconnect(TestStep step, Map<String, IsoClient> clients, StepResult sr) {
+        String connId = step.getConnection();
+        IsoClient client = clients.get(connId);
+        if (client == null) {
+            sr.setStatus(StepResult.Status.ERROR);
+            sr.setError("Connection '" + connId + "' not found or already disconnected");
+            return;
+        }
+        try {
+            client.disconnect();
+            clients.remove(connId);
+            log.info("Disconnected connection '{}'", connId);
+            sr.setStatus(StepResult.Status.PASSED);
+        } catch (Exception e) {
+            sr.setStatus(StepResult.Status.ERROR);
+            sr.setError("Disconnect error: " + e.getMessage());
+        }
+    }
+
+    // =========================================================================
     // CALL
     // =========================================================================
 
     private void executeCall(TestStep step, Map<String, String> callerVars,
-                             IsoClient client, StepResult sr, Path baseDir) throws Exception {
+                             Map<String, IsoClient> clients, StepResult sr, Path baseDir) throws Exception {
         String kwRef = step.getKeyword();
         if (kwRef == null || kwRef.isBlank()) {
             sr.setStatus(StepResult.Status.ERROR);
@@ -293,7 +348,7 @@ public class TestCaseRunner {
                 subResults.add(StepResult.skipped(kwStep));
                 continue;
             }
-            StepResult sub = executeStep(kwStep, mergedVars, client, baseDir);
+            StepResult sub = executeStep(kwStep, mergedVars, clients, baseDir);
             subResults.add(sub);
 
             if ((sub.getStatus() == StepResult.Status.FAILED

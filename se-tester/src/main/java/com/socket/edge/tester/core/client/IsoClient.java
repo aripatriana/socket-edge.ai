@@ -27,7 +27,12 @@ public class IsoClient {
     private EventLoopGroup group;
     private Channel channel;
 
+    /** Connect with default 4-byte header (backward compat). */
     public void connect(String host, int port, int timeoutMs) throws Exception {
+        connect(host, port, timeoutMs, 4);
+    }
+
+    public void connect(String host, int port, int timeoutMs, int headerBytes) throws Exception {
         group = new NioEventLoopGroup();
         CorrelationStore cs = store;
 
@@ -41,8 +46,8 @@ public class IsoClient {
                     @Override
                     protected void initChannel(SocketChannel ch) {
                         ch.pipeline()
-                          .addLast(new IsoFramer.Decoder())
-                          .addLast(new IsoFramer.Encoder())
+                          .addLast(new IsoFramer.Decoder(headerBytes))
+                          .addLast(new IsoFramer.Encoder(headerBytes))
                           .addLast(new SimpleChannelInboundHandler<byte[]>() {
 
                               @Override

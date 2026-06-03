@@ -8,7 +8,7 @@ import java.util.Map;
 @JsonIgnoreProperties(ignoreUnknown = true)
 public class TestStep {
 
-    public enum Action { SEND, WAIT, LOG, PAUSE, CALL }
+    public enum Action { SEND, WAIT, LOG, PAUSE, CALL, DISCONNECT }
 
     private String id;
     private String name;
@@ -19,6 +19,9 @@ public class TestStep {
     private MessageDef message;
     private LatencySla latencySla;
     private List<Assertion> assertions;
+
+    // SEND / DISCONNECT — which named connection to use (default: "default")
+    private String connection = "default";
 
     // CALL
     private String keyword;
@@ -66,6 +69,9 @@ public class TestStep {
 
     public List<Assertion> getAssertions() { return assertions; }
     public void setAssertions(List<Assertion> assertions) { this.assertions = assertions; }
+
+    public String getConnection() { return connection != null ? connection : "default"; }
+    public void setConnection(String connection) { this.connection = connection; }
 
     public String getKeyword() { return keyword; }
     public void setKeyword(String keyword) { this.keyword = keyword; }

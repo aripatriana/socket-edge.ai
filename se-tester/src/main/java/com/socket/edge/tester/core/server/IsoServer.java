@@ -28,7 +28,12 @@ public class IsoServer {
     private AutoResponder responder;
     private volatile boolean running = false;
 
+    /** Backward-compat: default 4-byte header. */
     public void start(int port, boolean autoRespond, int delayMs, String responseCode) throws Exception {
+        start(port, autoRespond, delayMs, responseCode, 4);
+    }
+
+    public void start(int port, boolean autoRespond, int delayMs, String responseCode, int headerBytes) throws Exception {
         bossGroup  = new NioEventLoopGroup(1);
         workerGroup = new NioEventLoopGroup();
         responder   = new AutoResponder(autoRespond, delayMs, responseCode);
@@ -45,8 +50,8 @@ public class IsoServer {
                     @Override
                     protected void initChannel(SocketChannel ch) {
                         ch.pipeline()
-                          .addLast(new IsoFramer.Decoder())
-                          .addLast(new IsoFramer.Encoder())
+                          .addLast(new IsoFramer.Decoder(headerBytes))
+                          .addLast(new IsoFramer.Encoder(headerBytes))
                           .addLast(new SimpleChannelInboundHandler<byte[]>() {
 
                               @Override
