@@ -12,13 +12,16 @@ import org.slf4j.LoggerFactory;
 
 import java.nio.file.Path;
 import java.util.*;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
 public class TestCaseRunner {
 
     private static final Logger log = LoggerFactory.getLogger(TestCaseRunner.class);
 
-    private final Map<String, Map<String, String>> stepContext = new LinkedHashMap<>();
+    private final Map<String, Map<String, String>>          stepContext    = new LinkedHashMap<>();
+    private final Map<String, CompletableFuture<IsoMessage>> pendingFutures = new LinkedHashMap<>();
 
     public TestResult run(TestCase tc) {
         return run(tc, Path.of(".").toAbsolutePath());
@@ -239,6 +242,7 @@ public class TestCaseRunner {
             switch (step.getAction()) {
                 case SEND       -> executeSend(step, vars, clients, sr);
                 case SEND_ASYNC -> executeSendAsync(step, vars, clients, sr);
+                case AWAIT      -> executeAwait(step, vars, sr);
                 case DISCONNECT -> executeDisconnect(step, clients, sr);
                 case WAIT       -> Thread.sleep(step.getWaitMs()  != null ? step.getWaitMs()  : 0);
                 case PAUSE      -> Thread.sleep(step.getPauseMs() != null ? step.getPauseMs() : 0);
@@ -311,18 +315,80 @@ public class TestCaseRunner {
         sr.setRequest(request);
         recordContext(step.getId(), "request", request);
 
-        // Fire and forget — response (if any) is ignored
-        client.sendAsync(request, 30000)
+        // Fire — response captured for optional AWAIT step
+        CompletableFuture<IsoMessage> future = client.sendAsync(request, 30000L)
               .whenComplete((resp, ex) -> {
                   if (ex != null) log.debug("SEND_ASYNC [{}] no response: {}", step.getId(), ex.getMessage());
-                  else if (resp != null) {
-                      recordContext(step.getId(), "response", resp);
-                      log.debug("SEND_ASYNC [{}] late response received (ignored for assertions)", step.getId());
-                  }
+                  else if (resp != null) recordContext(step.getId(), "response", resp);
               });
 
+        pendingFutures.put(step.getId(), future);
         sr.setStatus(StepResult.Status.PASSED);
         log.info("SEND_ASYNC fired step '{}' via connection '{}'", step.getId(), connId);
+    }
+
+    // =========================================================================
+    // AWAIT — tunggu response dari SEND_ASYNC, evaluasi assertions
+    // =========================================================================
+
+    private void executeAwait(TestStep step, Map<String, String> vars, StepResult sr) throws Exception {
+        String refId = step.getAwaitStep();
+        if (refId == null || refId.isBlank()) {
+            sr.setStatus(StepResult.Status.ERROR);
+            sr.setError("AWAIT step missing 'awaitStep' field");
+            return;
+        }
+
+        CompletableFuture<IsoMessage> future = pendingFutures.remove(refId);
+        if (future == null) {
+            sr.setStatus(StepResult.Status.ERROR);
+            sr.setError("No pending SEND_ASYNC found for awaitStep: '" + refId + "'");
+            return;
+        }
+
+        long timeoutMs = step.getTimeoutMs() != null ? step.getTimeoutMs() : 30000L;
+        long t0 = System.currentTimeMillis();
+
+        IsoMessage response;
+        try {
+            response = future.get(timeoutMs, TimeUnit.MILLISECONDS);
+        } catch (java.util.concurrent.TimeoutException e) {
+            sr.setStatus(StepResult.Status.FAILED);
+            sr.setError("AWAIT timeout after " + timeoutMs + "ms — no response for step '" + refId + "'");
+            return;
+        } catch (Exception e) {
+            sr.setStatus(StepResult.Status.ERROR);
+            sr.setError("AWAIT error for step '" + refId + "': " + e.getMessage());
+            return;
+        }
+
+        long latency = System.currentTimeMillis() - t0;
+        sr.setLatencyMs(latency);
+        sr.setResponse(response);
+
+        // Retrieve original request from stepContext
+        Map<String, String> reqCtx = stepContext.get(refId + ".request");
+        if (reqCtx != null) {
+            IsoMessage request = new IsoMessage(reqCtx.get("mti"));
+            reqCtx.forEach((k, v) -> {
+                if (k.startsWith("DE")) {
+                    try { request.setField(Integer.parseInt(k.substring(2)), v); }
+                    catch (NumberFormatException ignored) {}
+                }
+            });
+            sr.setRequest(request);
+        }
+
+        // Evaluate assertions (using vars from calling TC)
+        if (step.getAssertions() != null && !step.getAssertions().isEmpty()) {
+            List<AssertionResult> results = evaluateAssertions(step, sr.getRequest(), response, latency, vars);
+            sr.setAssertions(results);
+            boolean hardFailed = results.stream()
+                    .anyMatch(a -> !a.isPassed() && a.getSeverity() == Assertion.Severity.HARD);
+            sr.setStatus(hardFailed ? StepResult.Status.FAILED : StepResult.Status.PASSED);
+        } else {
+            sr.setStatus(StepResult.Status.PASSED);
+        }
     }
 
     // =========================================================================

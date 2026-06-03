@@ -8,7 +8,7 @@ import java.util.Map;
 @JsonIgnoreProperties(ignoreUnknown = true)
 public class TestStep {
 
-    public enum Action { SEND, SEND_ASYNC, WAIT, LOG, PAUSE, CALL, DISCONNECT }
+    public enum Action { SEND, SEND_ASYNC, AWAIT, WAIT, LOG, PAUSE, CALL, DISCONNECT }
 
     private String id;
     private String name;
@@ -20,8 +20,12 @@ public class TestStep {
     private LatencySla latencySla;
     private List<Assertion> assertions;
 
-    // SEND / DISCONNECT — which named connection to use (default: "default")
+    // SEND / SEND_ASYNC / DISCONNECT — which named connection to use (default: "default")
     private String connection = "default";
+
+    // AWAIT — wait for a SEND_ASYNC step's response and evaluate assertions
+    private String awaitStep; // step id of the SEND_ASYNC to wait for
+    private Long   timeoutMs; // override timeout for AWAIT (default: TC-level timeout)
 
     // CALL
     private String keyword;
@@ -72,6 +76,12 @@ public class TestStep {
 
     public String getConnection() { return connection != null ? connection : "default"; }
     public void setConnection(String connection) { this.connection = connection; }
+
+    public String getAwaitStep() { return awaitStep; }
+    public void setAwaitStep(String awaitStep) { this.awaitStep = awaitStep; }
+
+    public Long getTimeoutMs() { return timeoutMs; }
+    public void setTimeoutMs(Long timeoutMs) { this.timeoutMs = timeoutMs; }
 
     public String getKeyword() { return keyword; }
     public void setKeyword(String keyword) { this.keyword = keyword; }

@@ -1,0 +1,143 @@
+name: "TC_012_Correlation_Isolation"
+description: |
+  Test correlation isolation: client1 dan client2 fire request bersamaan (SEND_ASYNC),
+  kemudian AWAIT keduanya. Verifikasi bahwa setiap response matched ke request-nya sendiri
+  berdasarkan DE11(STAN) + DE37(RRN) — tidak ada cross-contamination antar koneksi.
+
+  Flow:
+    client1 ──── SEND_ASYNC ────────────────→ mock (delay 500ms)
+    client2 ──── SEND_ASYNC ─────────────────→ mock (delay 500ms)
+                  ↕ both in-flight simultaneously
+    AWAIT tx_c1 → response harus match STAN+RRN dari tx_c1
+    AWAIT tx_c2 → response harus match STAN+RRN dari tx_c2
+tags: [regression, correlation, isolation, concurrent, p1, standalone]
+timeout: 10000
+
+setup:
+  server:
+    port: 9100
+    autoRespond: true
+    delayMs: 500          # delay kecil agar kedua request benar-benar concurrent in-flight
+  connections:
+    - id: client1
+      host: "127.0.0.1"
+      port: 9100
+      timeoutMs: 5000
+    - id: client2
+      host: "127.0.0.1"
+      port: 9100
+      timeoutMs: 5000
+
+variables:
+  MERCHANT_ID: "MERCH000000001"
+
+steps:
+  # ── Phase 1: Fire kedua request bersamaan ─────────────────────────────────
+
+  - id: tx_c1
+    name: "SEND_ASYNC client1 — tx purchase A"
+    action: SEND_ASYNC
+    connection: client1
+    message:
+      mti: "0200"
+      fields:
+        DE2:  "{{pan(prefix=4111)}}"
+        DE3:  "000000"
+        DE4:  "000000111111"
+        DE7:  "{{datetime()}}"
+        DE11: "{{stan()}}"
+        DE12: "{{time()}}"
+        DE13: "{{date()}}"
+        DE22: "051"
+        DE25: "00"
+        DE37: "{{rrn()}}"
+        DE41: "TERM_C1"
+        DE42: "{{vars.MERCHANT_ID}}"
+        DE49: "360"
+
+  - id: tx_c2
+    name: "SEND_ASYNC client2 — tx purchase B (concurrent dengan A)"
+    action: SEND_ASYNC
+    connection: client2
+    message:
+      mti: "0200"
+      fields:
+        DE2:  "{{pan(prefix=5200)}}"
+        DE3:  "000000"
+        DE4:  "000000222222"
+        DE7:  "{{datetime()}}"
+        DE11: "{{stan()}}"
+        DE12: "{{time()}}"
+        DE13: "{{date()}}"
+        DE22: "051"
+        DE25: "00"
+        DE37: "{{rrn()}}"
+        DE41: "TERM_C2"
+        DE42: "{{vars.MERCHANT_ID}}"
+        DE49: "360"
+
+  # ── Phase 2: Tunggu dan verifikasi response masing-masing ─────────────────
+
+  - id: await_c1
+    name: "AWAIT response tx_c1 — verifikasi STAN/RRN tidak cross"
+    action: AWAIT
+    awaitStep: tx_c1
+    timeoutMs: 5000
+    assertions:
+      - mti: "0210"
+        severity: HARD
+        message: "Response tx_c1 harus 0210"
+
+      - field: DE39
+        equals: "00"
+        severity: HARD
+        message: "tx_c1 harus approved"
+
+      - field: DE11
+        equalsField: "{{steps.tx_c1.request.DE11}}"
+        severity: HARD
+        message: "STAN response harus match STAN request tx_c1 (bukan tx_c2)"
+
+      - field: DE37
+        equalsField: "{{steps.tx_c1.request.DE37}}"
+        severity: HARD
+        message: "RRN response harus match RRN request tx_c1 (bukan tx_c2)"
+
+      - field: DE4
+        equals: "000000111111"
+        severity: HARD
+        message: "Amount harus match tx_c1 (111111), bukan tx_c2 (222222)"
+
+  - id: await_c2
+    name: "AWAIT response tx_c2 — verifikasi STAN/RRN tidak cross"
+    action: AWAIT
+    awaitStep: tx_c2
+    timeoutMs: 5000
+    assertions:
+      - mti: "0210"
+        severity: HARD
+        message: "Response tx_c2 harus 0210"
+
+      - field: DE39
+        equals: "00"
+        severity: HARD
+        message: "tx_c2 harus approved"
+
+      - field: DE11
+        equalsField: "{{steps.tx_c2.request.DE11}}"
+        severity: HARD
+        message: "STAN response harus match STAN request tx_c2 (bukan tx_c1)"
+
+      - field: DE37
+        equalsField: "{{steps.tx_c2.request.DE37}}"
+        severity: HARD
+        message: "RRN response harus match RRN request tx_c2 (bukan tx_c1)"
+
+      - field: DE4
+        equals: "000000222222"
+        severity: HARD
+        message: "Amount harus match tx_c2 (222222), bukan tx_c1 (111111)"
+
+teardown:
+  disconnect: true
+  stopServer: true
