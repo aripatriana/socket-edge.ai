@@ -1,0 +1,31 @@
+name: "sign_on"
+description: "0800 network management sign-on (DE70=101)"
+
+parameters:
+  TERMINAL_ID: "TERM0001"
+
+steps:
+  - id: signon
+    name: "0800 Sign-On"
+    action: SEND
+    message:
+      mti: "0800"
+      fields:
+        DE7:  "{{datetime()}}"
+        DE11: "{{stan()}}"
+        DE12: "{{time()}}"
+        DE13: "{{date()}}"
+        DE41: "{{vars.TERMINAL_ID}}"
+        DE70: "101"
+    assertions:
+      - mti: "0810"
+        severity: HARD
+        message: "Sign-on response harus 0810"
+      - field: DE39
+        equals: "00"
+        severity: HARD
+        message: "Sign-on harus berhasil RC=00"
+      - field: DE70
+        equals: "101"
+        severity: HARD
+        message: "DE70 harus di-echo back"

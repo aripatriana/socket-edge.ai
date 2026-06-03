@@ -1,0 +1,106 @@
+name: "TC_003_Multi_Purchase_Session"
+description: "Dua 0200 purchase dalam satu sesi — verify connection reuse dan STAN unik per transaksi"
+tags: [regression, financial, p2, standalone]
+timeout: 10000
+
+setup:
+  server:
+    port: 9100
+    autoRespond: true
+    delayMs: 0
+  connect:
+    host: "127.0.0.1"
+    port: 9100
+    timeoutMs: 5000
+
+variables:
+  TERMINAL_ID: "TERM0003"
+  MERCHANT_ID: "MERCH000000001"
+
+steps:
+  - id: purchase_1
+    name: "Purchase pertama 0200"
+    action: SEND
+    message:
+      mti: "0200"
+      fields:
+        DE2:  "{{pan(prefix=4111)}}"
+        DE3:  "000000"
+        DE4:  "{{amount(min=10000,max=99999)}}"
+        DE7:  "{{datetime()}}"
+        DE11: "{{stan()}}"
+        DE12: "{{time()}}"
+        DE13: "{{date()}}"
+        DE22: "051"
+        DE25: "00"
+        DE37: "{{rrn()}}"
+        DE41: "{{vars.TERMINAL_ID}}"
+        DE42: "{{vars.MERCHANT_ID}}"
+        DE49: "360"
+
+    latencySla:
+      warn: 500
+      fail: 3000
+
+    assertions:
+      - mti: "0210"
+        severity: HARD
+        message: "Response MTI harus 0210"
+
+      - field: DE39
+        equals: "00"
+        severity: HARD
+        message: "Transaksi pertama harus approved"
+
+      - field: DE11
+        equalsField: "{{steps.purchase_1.request.DE11}}"
+        severity: HARD
+        message: "STAN pertama harus di-echo back"
+
+  - id: purchase_2
+    name: "Purchase kedua 0200 — sesi yang sama"
+    action: SEND
+    message:
+      mti: "0200"
+      fields:
+        DE2:  "{{pan(prefix=5200)}}"
+        DE3:  "000000"
+        DE4:  "{{amount(min=10000,max=99999)}}"
+        DE7:  "{{datetime()}}"
+        DE11: "{{stan()}}"
+        DE12: "{{time()}}"
+        DE13: "{{date()}}"
+        DE22: "051"
+        DE25: "00"
+        DE37: "{{rrn()}}"
+        DE41: "{{vars.TERMINAL_ID}}"
+        DE42: "{{vars.MERCHANT_ID}}"
+        DE49: "360"
+
+    latencySla:
+      warn: 500
+      fail: 3000
+
+    assertions:
+      - mti: "0210"
+        severity: HARD
+        message: "Response MTI harus 0210"
+
+      - field: DE39
+        equals: "00"
+        severity: HARD
+        message: "Transaksi kedua harus approved"
+
+      - field: DE11
+        equalsField: "{{steps.purchase_2.request.DE11}}"
+        severity: HARD
+        message: "STAN kedua harus di-echo back"
+
+      - field: DE37
+        equalsField: "{{steps.purchase_2.request.DE37}}"
+        severity: HARD
+        message: "RRN kedua harus di-echo back"
+
+teardown:
+  disconnect: true
+  stopServer: true

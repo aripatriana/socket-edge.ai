@@ -1,0 +1,38 @@
+name: "TC_007_Keyword_Call"
+description: "Sign-on lalu dua purchase via CALL keyword — verify reuse dan parameter override"
+tags: [regression, keyword, call, p2, standalone]
+timeout: 10000
+
+setup:
+  server:
+    port: 9100
+    autoRespond: true
+    delayMs: 0
+  connect:
+    host: "127.0.0.1"
+    port: 9100
+    timeoutMs: 5000
+
+variables:
+  TERMINAL_ID: "TERM0007"
+  MERCHANT_ID: "MERCH000000007"
+
+steps:
+  - id: kw_signon
+    name: "Sign-on via keyword"
+    action: CALL
+    keyword: "../../keywords/sign_on.yaml"
+
+  - id: kw_purchase_1
+    name: "Purchase Rp 50.000 via keyword"
+    action: CALL
+    keyword: "../../keywords/purchase.yaml"
+    params:
+      AMOUNT: "000000050000"    # override default amount di keyword
+
+  - id: kw_purchase_2
+    name: "Purchase Rp 150.000 via keyword — amount override"
+    action: CALL
+    keyword: "../../keywords/purchase.yaml"
+    params:
+      AMOUNT: "000000150000"    # amount berbeda, keyword yang sama

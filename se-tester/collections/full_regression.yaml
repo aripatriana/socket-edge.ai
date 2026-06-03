@@ -1,0 +1,6 @@
+name: "Full Regression Collection"
+description: "Semua suite — financial, network, regression, data-driven"
+stopOnFail: false
+
+suites:
+  - ../suites/smoke_test.yaml

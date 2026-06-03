@@ -1,0 +1,55 @@
+name: "TC_005_Network_Management"
+description: "0800 sign-on (DE70=101) — verify 0810 RC=00 dan DE70 echo-back"
+tags: [regression, network, p1, standalone]
+timeout: 10000
+
+setup:
+  server:
+    port: 9100
+    autoRespond: true
+    delayMs: 0
+  connect:
+    host: "127.0.0.1"
+    port: 9100
+    timeoutMs: 5000
+
+steps:
+  - id: signon
+    name: "0800 Sign-On (DE70=101)"
+    action: SEND
+    message:
+      mti: "0800"
+      fields:
+        DE7:  "{{datetime()}}"
+        DE11: "{{stan()}}"
+        DE12: "{{time()}}"
+        DE13: "{{date()}}"
+        DE70: "101"
+
+    latencySla:
+      warn: 300
+      fail: 2000
+
+    assertions:
+      - mti: "0810"
+        severity: HARD
+        message: "Response sign-on harus 0810"
+
+      - field: DE39
+        equals: "00"
+        severity: HARD
+        message: "Sign-on harus berhasil (RC=00)"
+
+      - field: DE70
+        equals: "101"
+        severity: HARD
+        message: "DE70 harus di-echo back sebagai 101"
+
+      - field: DE11
+        equalsField: "{{steps.signon.request.DE11}}"
+        severity: HARD
+        message: "STAN harus di-echo back"
+
+teardown:
+  disconnect: true
+  stopServer: true

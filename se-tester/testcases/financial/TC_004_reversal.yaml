@@ -1,0 +1,101 @@
+name: "TC_004_Reversal"
+description: "0200 purchase lalu 0420 reversal — verify 0430 RC=00, RRN reversal = RRN original"
+tags: [regression, financial, reversal, p1, standalone]
+timeout: 10000
+
+setup:
+  server:
+    port: 9100
+    autoRespond: true
+    delayMs: 0
+  connect:
+    host: "127.0.0.1"
+    port: 9100
+    timeoutMs: 5000
+
+variables:
+  TERMINAL_ID: "TERM0004"
+  MERCHANT_ID: "MERCH000000001"
+
+steps:
+  - id: original_purchase
+    name: "0200 — original purchase"
+    action: SEND
+    message:
+      mti: "0200"
+      fields:
+        DE2:  "{{pan(prefix=4111)}}"
+        DE3:  "000000"
+        DE4:  "000000025000"
+        DE7:  "{{datetime()}}"
+        DE11: "{{stan()}}"
+        DE12: "{{time()}}"
+        DE13: "{{date()}}"
+        DE22: "051"
+        DE25: "00"
+        DE37: "{{rrn()}}"
+        DE41: "{{vars.TERMINAL_ID}}"
+        DE42: "{{vars.MERCHANT_ID}}"
+        DE49: "360"
+
+    latencySla:
+      warn: 500
+      fail: 3000
+
+    assertions:
+      - mti: "0210"
+        severity: HARD
+        message: "Response original harus 0210"
+
+      - field: DE39
+        equals: "00"
+        severity: HARD
+        message: "Original purchase harus approved"
+
+      - field: DE38
+        notEmpty: true
+        severity: SOFT
+        message: "Auth ID harus ada"
+
+  - id: reversal
+    name: "0420 — reversal untuk original_purchase"
+    action: SEND
+    message:
+      mti: "0420"
+      fields:
+        DE2:  "{{steps.original_purchase.request.DE2}}"
+        DE3:  "000000"
+        DE4:  "000000025000"
+        DE7:  "{{datetime()}}"
+        DE11: "{{stan()}}"
+        DE12: "{{time()}}"
+        DE13: "{{date()}}"
+        DE22: "051"
+        DE25: "00"
+        DE37: "{{steps.original_purchase.request.DE37}}"
+        DE41: "{{vars.TERMINAL_ID}}"
+        DE42: "{{vars.MERCHANT_ID}}"
+        DE49: "360"
+
+    latencySla:
+      warn: 500
+      fail: 3000
+
+    assertions:
+      - mti: "0430"
+        severity: HARD
+        message: "Response reversal harus 0430"
+
+      - field: DE39
+        equals: "00"
+        severity: HARD
+        message: "Reversal harus approved (RC=00)"
+
+      - field: DE37
+        equalsField: "{{steps.original_purchase.request.DE37}}"
+        severity: HARD
+        message: "RRN reversal harus sama dengan RRN original"
+
+teardown:
+  disconnect: true
+  stopServer: true

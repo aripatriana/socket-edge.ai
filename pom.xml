@@ -17,6 +17,7 @@
         <module>se-console</module>
         <module>se-ai</module>
         <module>se-simulator</module>
+        <module>se-tester</module>
     </modules>
 
     <properties>

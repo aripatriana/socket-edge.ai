@@ -2,3 +2,12 @@
 /se-proto/target
 /se-ai/target
 /se-simulator/target
+/se-tester/target
+
+# Generated report & result files (root-level outputs from se-tester)
+/*_report.html
+/result.xml
+/suite_result.xml
+/collection_report.xml
+/data/
+/LOG_DIR_IS_UNDEFINED/

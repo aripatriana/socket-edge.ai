@@ -1,0 +1,14 @@
+name: "Smoke Test Suite"
+description: "P1 scenarios — standalone mock, tanpa Socket Edge"
+tags: [smoke, p1, standalone]
+stopOnFail: false
+
+testCases:
+  - ../testcases/financial/TC_001_standalone_happy_path.yaml
+  - ../testcases/financial/TC_002_cash_advance.yaml
+  - ../testcases/financial/TC_003_multi_purchase_session.yaml
+  - ../testcases/financial/TC_004_reversal.yaml
+  - ../testcases/network/TC_005_network_management.yaml
+  - ../testcases/financial/TC_006_decline.yaml
+  - ../testcases/regression/TC_007_keyword_call.yaml
+  - ../testcases/financial/TC_008_data_driven_purchase.yaml
