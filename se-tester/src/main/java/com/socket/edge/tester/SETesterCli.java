@@ -1,7 +1,10 @@
 package com.socket.edge.tester;
 
 import com.socket.edge.tester.cli.CollectCommand;
+import com.socket.edge.tester.cli.LoadCommand;
 import com.socket.edge.tester.cli.RunCommand;
+import com.socket.edge.tester.cli.SendCommand;
+import com.socket.edge.tester.cli.StressCommand;
 import com.socket.edge.tester.cli.SuiteCommand;
 import com.socket.edge.tester.cli.ValidateCommand;
 import picocli.CommandLine;
@@ -16,7 +19,10 @@ import picocli.CommandLine.Command;
         RunCommand.class,
         SuiteCommand.class,
         CollectCommand.class,
-        ValidateCommand.class
+        ValidateCommand.class,
+        LoadCommand.class,
+        StressCommand.class,
+        SendCommand.class
     }
 )
 public class SETesterCli implements Runnable {
