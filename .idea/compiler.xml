@@ -10,6 +10,8 @@
         <module name="se-proto" />
         <module name="se-core" />
         <module name="se-console" />
+        <module name="se-simulator" />
+        <module name="se-tester" />
       </profile>
     </annotationProcessing>
   </component>

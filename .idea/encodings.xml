@@ -8,6 +8,10 @@
     <file url="file://$PROJECT_DIR$/se-core/src/main/resources" charset="UTF-8" />
     <file url="file://$PROJECT_DIR$/se-proto/src/main/java" charset="UTF-8" />
     <file url="file://$PROJECT_DIR$/se-proto/src/main/resources" charset="UTF-8" />
+    <file url="file://$PROJECT_DIR$/se-simulator/src/main/java" charset="UTF-8" />
+    <file url="file://$PROJECT_DIR$/se-simulator/src/main/resources" charset="UTF-8" />
+    <file url="file://$PROJECT_DIR$/se-tester/src/main/java" charset="UTF-8" />
+    <file url="file://$PROJECT_DIR$/se-tester/src/main/resources" charset="UTF-8" />
     <file url="file://$PROJECT_DIR$/src/main/java" charset="UTF-8" />
     <file url="file://$PROJECT_DIR$/src/main/resources" charset="UTF-8" />
   </component>

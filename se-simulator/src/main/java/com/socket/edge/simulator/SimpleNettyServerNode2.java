@@ -7,7 +7,7 @@ public class SimpleNettyServerNode2 extends SimpleNettyServer {
     }
 
     public static void main(String[] args) throws Exception {
-        new SimpleNettyServerNode2().start(21000);
+        new SimpleNettyServerNode2().start(25000);
     }
 
 }
